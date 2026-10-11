@@ -1,0 +1,28 @@
+[project]
+name = "footballfoundry"
+version = "0.1.0"
+description = "Synthetic, football-realistic match event generator for the Inside the Game hackathon"
+requires-python = ">=3.11"
+dependencies = [
+    "footballfoundry-schema",
+    # Pinned to a minor range: Faker's name lists can change between releases,
+    # which would change generated names for a given seed.
+    "faker>=30,<41",
+]
+
+[project.optional-dependencies]
+parquet = ["pyarrow>=16"]
+azure = ["azure-eventhub>=5.11", "azure-identity>=1.15"]
+
+[project.scripts]
+footballfoundry = "footballfoundry.cli:main"
+
+[tool.uv.sources]
+footballfoundry-schema = { workspace = true }
+
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
+
+[tool.hatch.build.targets.wheel]
+packages = ["src/footballfoundry"]

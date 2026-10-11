@@ -1,0 +1,27 @@
+# Workspace root. Each deployable piece is its own package under packages/;
+# Azure resources live in infra/ and Fabric items in fabric/.
+[tool.uv.workspace]
+members = ["packages/*"]
+exclude = ["packages/web"]  # the React app (npm), served by the agents service
+
+[tool.uv.sources]
+footballfoundry-schema = { workspace = true }
+footballfoundry = { workspace = true }
+footballfoundry-agents = { workspace = true }
+footballfoundry-mcp = { workspace = true }
+
+[dependency-groups]
+dev = [
+    "pytest>=8",
+    "footballfoundry[parquet,azure]",
+    "footballfoundry-agents",
+    "footballfoundry-mcp[kusto,cosmos]",
+]
+
+[tool.pytest.ini_options]
+testpaths = ["packages"]
+addopts = "--import-mode=importlib"
+markers = ["slow: simulates many matches (calibration)"]
+
+[tool.ruff]
+line-length = 120

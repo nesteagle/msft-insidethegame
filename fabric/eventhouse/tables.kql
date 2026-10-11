@@ -1,0 +1,45 @@
+// FootballFoundry Eventhouse tables. Run once in a KQL queryset on the `footballfoundry` KQL database.
+// Columns follow footballfoundry_schema.Event exactly, so Eventstream can ingest the JSON messages as they are.
+
+.create-merge table MatchEvents (
+    event_id: string, match_id: string, seq: long, period: int, elapsed_s: real, minute: int, second: int,
+    clock: string, type: string, team_id: string, player_id: string, related_player_id: string, outcome: string,
+    x: real, y: real, end_x: real, end_y: real, possession_id: long, possession_team_id: string,
+    set_piece: string, under_pressure: bool, body_part: string, xg: real, home_score: int, away_score: int,
+    qualifiers: dynamic, stream_id: string
+)
+
+.create-or-alter table MatchEvents ingestion json mapping "MatchEventsMapping"
+```[
+    {"column": "event_id", "path": "$.event_id"},
+    {"column": "match_id", "path": "$.match_id"},
+    {"column": "seq", "path": "$.seq"},
+    {"column": "period", "path": "$.period"},
+    {"column": "elapsed_s", "path": "$.elapsed_s"},
+    {"column": "minute", "path": "$.minute"},
+    {"column": "second", "path": "$.second"},
+    {"column": "clock", "path": "$.clock"},
+    {"column": "type", "path": "$.type"},
+    {"column": "team_id", "path": "$.team_id"},
+    {"column": "player_id", "path": "$.player_id"},
+    {"column": "related_player_id", "path": "$.related_player_id"},
+    {"column": "outcome", "path": "$.outcome"},
+    {"column": "x", "path": "$.x"},
+    {"column": "y", "path": "$.y"},
+    {"column": "end_x", "path": "$.end_x"},
+    {"column": "end_y", "path": "$.end_y"},
+    {"column": "possession_id", "path": "$.possession_id"},
+    {"column": "possession_team_id", "path": "$.possession_team_id"},
+    {"column": "set_piece", "path": "$.set_piece"},
+    {"column": "under_pressure", "path": "$.under_pressure"},
+    {"column": "body_part", "path": "$.body_part"},
+    {"column": "xg", "path": "$.xg"},
+    {"column": "home_score", "path": "$.home_score"},
+    {"column": "away_score", "path": "$.away_score"},
+    {"column": "qualifiers", "path": "$.qualifiers"},
+    {"column": "stream_id", "path": "$.stream_id"}
+]```
+
+// The fixture list: which matchday each match belongs to. Load it with fixtures_to_kql.py (see README).
+.create-merge table Fixtures (match_id: string, matchday: int, kickoff: datetime, home_club_id: string,
+    away_club_id: string)

@@ -1,0 +1,28 @@
+[project]
+name = "footballfoundry-mcp"
+version = "0.1.0"
+description = "MCP server exposing FootballFoundry match data (events, live stats, players, season queries) as tools"
+requires-python = ">=3.11"
+dependencies = [
+    "footballfoundry-schema",
+    # 1.x: shares one lockfile with Agent Framework, which requires mcp<2.
+    "mcp>=1.24,<2",
+    "httpx>=0.27",
+]
+
+[project.optional-dependencies]
+kusto = ["azure-kusto-data>=5", "azure-identity>=1.15"]
+cosmos = ["azure-cosmos>=4.9", "azure-identity>=1.15"]
+
+[project.scripts]
+footballfoundry-mcp = "footballfoundry_mcp.server:main"
+
+[tool.uv.sources]
+footballfoundry-schema = { workspace = true }
+
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
+
+[tool.hatch.build.targets.wheel]
+packages = ["src/footballfoundry_mcp"]

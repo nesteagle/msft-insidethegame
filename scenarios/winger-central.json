@@ -1,0 +1,8 @@
+{
+  "name": "winger-central",
+  "description": "At 61' the home right winger moves into the number 10 role (swapping with whoever played there) to get on the ball more centrally, and the side goes more direct.",
+  "changes": [
+    {"minute": 61, "side": "home", "type": "role", "player": "RW", "to": "AM"},
+    {"minute": 61, "side": "home", "type": "style", "changes": {"directness": 0.15}}
+  ]
+}

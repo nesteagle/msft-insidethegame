@@ -1,0 +1,24 @@
+# Azure Developer CLI: `azd up` provisions infra/ and deploys the containers (the agents image includes the web app).
+name: footballfoundry
+metadata:
+  template: footballfoundry@0.1.0
+infra:
+  provider: bicep
+  path: infra
+services:
+  agents:
+    project: ./packages/agents
+    language: python
+    host: containerapp
+    docker:
+      path: ./Dockerfile
+      context: ../..
+      remoteBuild: true  # built in the container registry; no local Docker needed
+  mcp:
+    project: ./packages/mcp
+    language: python
+    host: containerapp
+    docker:
+      path: ./Dockerfile
+      context: ../..
+      remoteBuild: true  # built in the container registry; no local Docker needed

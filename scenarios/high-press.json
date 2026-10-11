@@ -1,0 +1,7 @@
+{
+  "name": "high-press",
+  "description": "The home side, struggling to get at the ball, push their press and their line up from 58'. Not announced: can the agents spot it, and explain what it changed?",
+  "changes": [
+    {"minute": 58, "side": "home", "type": "style", "changes": {"press_intensity": 0.35, "defensive_line": 0.25, "tempo": 0.15}}
+  ]
+}

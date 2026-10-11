@@ -1,0 +1,85 @@
+// FootballFoundry functions used by the MCP server (packages/mcp, KustoBackend). Run after tables.kql.
+// `md` is a matchday cutoff: only matches on earlier matchdays count, so a replayed season can't leak the future.
+
+// Events of one match up to seq `s`. If the match was streamed more than once, only the latest stream (by the
+// stream_id on its kick-off); rows without a stream_id fall back to ingestion time.
+.create-or-alter function with (folder = "footballfoundry", docstring = "Events of a match up to seq s, latest run")
+FF_MatchEvents(m: string, s: long) {
+    let kickoff = MatchEvents | where match_id == m and seq == 1 | top 1 by ingestion_time() desc;
+    let run = toscalar(kickoff | project stream_id);
+    let run_start = toscalar(kickoff | project ingestion_time());
+    MatchEvents
+    | where match_id == m and seq <= s
+    | where (isnotempty(run) and stream_id == run) or (isempty(run) and (isnull(run_start) or ingestion_time() >= run_start))
+    | order by seq asc
+}
+
+// Final scores of finished matches before matchday `md`.
+.create-or-alter function with (folder = "footballfoundry", docstring = "Finished matches before matchday md")
+FF_Results(md: long) {
+    MatchEvents
+    | where type == "period_end" and period == 2
+    | summarize home_score = take_any(home_score), away_score = take_any(away_score) by match_id
+    | join kind = inner (Fixtures | where matchday < md) on match_id
+    | project match_id, matchday, home = home_club_id, away = away_club_id, home_score, away_score
+}
+
+.create-or-alter function with (folder = "footballfoundry", docstring = "League table before matchday md")
+FF_Standings(md: long) {
+    let r = FF_Results(md);
+    union
+        (r | project club_id = home, gf = home_score, ga = away_score),
+        (r | project club_id = away, gf = away_score, ga = home_score)
+    | summarize played = count(), won = countif(gf > ga), drawn = countif(gf == ga), lost = countif(gf < ga),
+        goals_for = sum(gf), goals_against = sum(ga) by club_id
+    | extend points = 3 * won + drawn, goal_difference = goals_for - goals_against
+    | order by points desc, goal_difference desc, goals_for desc
+    | extend position = row_number()
+}
+
+.create-or-alter function with (folder = "footballfoundry", docstring = "Top n scorers before matchday md")
+FF_TopScorers(md: long, n: long) {
+    MatchEvents
+    | where type == "shot"
+    | summarize outcome = take_any(outcome), xg = take_any(xg), player_id = take_any(player_id),
+        club_id = take_any(team_id), match_id = take_any(match_id) by event_id
+    | join kind = inner (Fixtures | where matchday < md | project match_id) on match_id
+    | summarize goals = countif(outcome == "goal"), shots = count(), xg = round(sum(xg), 2) by player_id, club_id
+    | where goals > 0
+    | top n by goals desc, xg desc
+}
+
+.create-or-alter function with (folder = "footballfoundry", docstring = "A club's last n results before matchday md")
+FF_TeamForm(club: string, md: long, n: long) {
+    FF_Results(md)
+    | where home == club or away == club
+    | extend venue = iff(home == club, "home", "away"), opponent = iff(home == club, away, home),
+        goals_for = iff(home == club, home_score, away_score), goals_against = iff(home == club, away_score, home_score)
+    | extend result = case(goals_for > goals_against, "W", goals_for == goals_against, "D", "L")
+    | top n by matchday desc
+    | order by matchday asc
+    | project match_id, matchday, opponent, venue, goals_for, goals_against, result
+}
+
+.create-or-alter function with (folder = "footballfoundry", docstring = "A player's season totals before matchday md")
+FF_PlayerSeason(player: string, md: long) {
+    let fx = Fixtures | where matchday < md | project match_id;
+    let apps = toscalar(
+        MatchEvents
+        | where player_id == player or (type == "substitution" and related_player_id == player)
+        | join kind = inner fx on match_id
+        | summarize dcount(match_id));
+    MatchEvents
+    | where player_id == player and type == "shot"
+    | summarize outcome = take_any(outcome), xg = take_any(xg), match_id = take_any(match_id) by event_id
+    | join kind = inner fx on match_id
+    | summarize goals = countif(outcome == "goal"), shots = count(), xg = round(sum(xg), 2)
+    | extend player_id = player, appearances = apps
+}
+
+.create-or-alter function with (folder = "footballfoundry", docstring = "Meetings of two clubs before matchday md")
+FF_HeadToHead(a: string, b: string, md: long) {
+    FF_Results(md)
+    | where (home == a and away == b) or (home == b and away == a)
+    | order by matchday asc
+}

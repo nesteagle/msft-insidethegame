@@ -1,0 +1,16 @@
+{
+  "$schema": "https://schema.management.azure.com/schemas/2019-04-01/deploymentParameters.json#",
+  "contentVersion": "1.0.0.0",
+  "parameters": {
+    "environmentName": { "value": "${AZURE_ENV_NAME}" },
+    "location": { "value": "${AZURE_LOCATION}" },
+    "principalId": { "value": "${AZURE_PRINCIPAL_ID}" },
+    "modelName": { "value": "${FOUNDRY_MODEL_NAME=gpt-6-luna}" },
+    "modelVersion": { "value": "${FOUNDRY_MODEL_VERSION=2026-09-22}" },
+    "kustoUri": { "value": "${KUSTO_URI=}" },
+    "translatorLlmDeployment": { "value": "${TRANSLATOR_LLM_DEPLOYMENT=}" },
+    "controlKey": { "value": "${CONTROL_KEY=}" },
+    "agentsImage": { "value": "${SERVICE_AGENTS_IMAGE_NAME=}" },
+    "mcpImage": { "value": "${SERVICE_MCP_IMAGE_NAME=}" }
+  }
+}

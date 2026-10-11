@@ -1,0 +1,117 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Match Viewer</title>
+  <link rel="icon" href="data:,">
+  <link rel="stylesheet" href="viewer.css">
+</head>
+<body>
+<div class="app">
+  <header class="scorebar">
+    <div class="team home">
+      <span class="kit" id="home-kit" aria-hidden="true"></span>
+      <span class="team-dot home" aria-hidden="true"></span>
+      <span class="team-name" id="home-name">Home</span>
+    </div>
+    <div class="score" aria-live="polite">
+      <span id="home-score">0</span><span class="dash">–</span><span id="away-score">0</span>
+    </div>
+    <div class="team away">
+      <span class="team-name" id="away-name">Away</span>
+      <span class="team-dot away" aria-hidden="true"></span>
+      <span class="kit" id="away-kit" aria-hidden="true"></span>
+    </div>
+    <div class="clock">
+      <span id="clock">0'</span>
+      <span id="status" class="status">Pre-match</span>
+    </div>
+  </header>
+
+  <div class="toolbar">
+    <label class="select-wrap">
+      <span class="visually-hidden">Match</span>
+      <select id="match-select"></select>
+    </label>
+    <button id="play" class="btn primary" type="button">Pause</button>
+    <button id="restart" class="btn" type="button">Restart</button>
+    <div class="segmented" id="speeds" role="group" aria-label="Playback speed"></div>
+    <span class="conn" id="conn"><span class="conn-dot"></span><span id="conn-text">Connecting…</span></span>
+  </div>
+  <p class="meta" id="meta"></p>
+
+  <main class="layout">
+    <section class="stage">
+      <div class="card pitch-card">
+        <svg id="pitch" viewBox="-4 -3 113 74" role="img" aria-label="Pitch view">
+          <defs>
+            <pattern id="stripes" width="10.5" height="68" patternUnits="userSpaceOnUse">
+              <rect width="5.25" height="68" class="stripe"></rect>
+            </pattern>
+          </defs>
+          <rect x="-4" y="-3" width="113" height="74" class="pitch-bg"></rect>
+          <rect x="0" y="0" width="105" height="68" fill="url(#stripes)"></rect>
+          <g class="lines">
+            <rect x="0" y="0" width="105" height="68"></rect>
+            <line x1="52.5" y1="0" x2="52.5" y2="68"></line>
+            <circle cx="52.5" cy="34" r="9.15"></circle>
+            <circle cx="52.5" cy="34" r="0.35" class="spot"></circle>
+            <rect x="0" y="13.84" width="16.5" height="40.32"></rect>
+            <rect x="88.5" y="13.84" width="16.5" height="40.32"></rect>
+            <rect x="0" y="24.84" width="5.5" height="18.32"></rect>
+            <rect x="99.5" y="24.84" width="5.5" height="18.32"></rect>
+            <circle cx="11" cy="34" r="0.35" class="spot"></circle>
+            <circle cx="94" cy="34" r="0.35" class="spot"></circle>
+            <path d="M 16.5 26.69 A 9.15 9.15 0 0 1 16.5 41.31"></path>
+            <path d="M 88.5 26.69 A 9.15 9.15 0 0 0 88.5 41.31"></path>
+            <rect x="-1.8" y="30.34" width="1.8" height="7.32" class="goal"></rect>
+            <rect x="105" y="30.34" width="1.8" height="7.32" class="goal"></rect>
+          </g>
+          <g id="trails"></g>
+          <g id="players"></g>
+          <g id="ball" class="ball"><circle r="0.85"></circle></g>
+        </svg>
+        <div class="direction">
+          <span id="dir-left"></span>
+          <span id="dir-right"></span>
+        </div>
+        <div id="banner" class="banner" hidden></div>
+      </div>
+
+      <div class="card momentum-card">
+        <div class="card-head">
+          <h2>Momentum <span class="sub">attacking threat per minute · click a minute to replay from there</span></h2>
+          <div class="legend" id="momentum-legend"></div>
+        </div>
+        <div class="momentum-wrap" id="momentum-wrap">
+          <svg id="momentum" role="img" aria-label="Attacking threat per minute for each team"></svg>
+          <div id="tooltip" class="tooltip" hidden></div>
+        </div>
+      </div>
+    </section>
+
+    <aside class="side">
+      <div class="card">
+        <h2>Match stats</h2>
+        <table class="stats" id="stats">
+          <thead><tr><th scope="col" id="stats-home">Home</th><th scope="col"></th><th scope="col" id="stats-away">Away</th></tr></thead>
+          <tbody></tbody>
+        </table>
+      </div>
+      <div class="card feed-card">
+        <div class="card-head">
+          <h2>Live feed</h2>
+          <div class="tabs" role="tablist">
+            <button type="button" class="tab active" data-filter="key" role="tab" aria-selected="true">Key moments</button>
+            <button type="button" class="tab" data-filter="all" role="tab" aria-selected="false">All events</button>
+          </div>
+        </div>
+        <ol id="feed" class="feed"></ol>
+      </div>
+    </aside>
+  </main>
+</div>
+<script src="viewer.js"></script>
+</body>
+</html>

@@ -1,0 +1,30 @@
+{
+  "name": "footballfoundry-web",
+  "private": true,
+  "version": "0.1.0",
+  "type": "module",
+  "description": "FootballFoundry web app: live match, agent insights and the match assistant chat",
+  "scripts": {
+    "dev": "vite",
+    "build": "tsc --noEmit && vite build",
+    "preview": "vite preview",
+    "typecheck": "tsc --noEmit"
+  },
+  "dependencies": {
+    "@ag-ui/client": "^1.0.1",
+    "@fluentui/react-components": "^9.74.9",
+    "@fluentui/react-icons": "^2.0.343",
+    "i18next": "^26.4.2",
+    "react": "^19.3.0",
+    "react-dom": "^19.3.0",
+    "react-i18next": "^17.0.15",
+    "zustand": "^5.0.15"
+  },
+  "devDependencies": {
+    "@types/react": "^19.3.0",
+    "@types/react-dom": "^19.3.0",
+    "@vitejs/plugin-react": "^6.1.1",
+    "typescript": "~5.9.3",
+    "vite": "^8.3.2"
+  }
+}

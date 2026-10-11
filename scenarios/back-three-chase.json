@@ -1,0 +1,8 @@
+{
+  "name": "back-three-chase",
+  "description": "The away side switch to a 3-5-2 at 60' and throw caution to the wind: higher, wider, faster.",
+  "changes": [
+    {"minute": 60, "side": "away", "type": "formation", "formation": "3-5-2"},
+    {"minute": 60, "side": "away", "type": "style", "changes": {"press_intensity": 0.3, "width": 0.2, "tempo": 0.2, "defensive_line": 0.2}}
+  ]
+}
