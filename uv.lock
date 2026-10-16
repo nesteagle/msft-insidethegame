@@ -899,6 +899,7 @@ dependencies = [
     { name = "agent-framework-ag-ui" },
     { name = "agent-framework-core" },
     { name = "agent-framework-foundry" },
+    { name = "aiohttp" },
     { name = "azure-ai-translation-text" },
     { name = "azure-cosmos" },
     { name = "azure-eventhub" },
@@ -922,6 +923,7 @@ requires-dist = [
     { name = "agent-framework-ag-ui", specifier = ">=1.4,<2" },
     { name = "agent-framework-core", specifier = ">=1.19,<2" },
     { name = "agent-framework-foundry", specifier = ">=1.13,<2" },
+    { name = "aiohttp", specifier = ">=3.9" },
     { name = "azure-ai-translation-text", specifier = ">=2.0" },
     { name = "azure-cosmos", specifier = ">=4.9" },
     { name = "azure-eventhub", specifier = ">=5.11" },
@@ -949,6 +951,7 @@ dependencies = [
 
 [package.optional-dependencies]
 cosmos = [
+    { name = "aiohttp" },
     { name = "azure-cosmos" },
     { name = "azure-identity" },
 ]
@@ -959,6 +962,7 @@ kusto = [
 
 [package.metadata]
 requires-dist = [
+    { name = "aiohttp", marker = "extra == 'cosmos'", specifier = ">=3.9" },
     { name = "azure-cosmos", marker = "extra == 'cosmos'", specifier = ">=4.9" },
     { name = "azure-identity", marker = "extra == 'cosmos'", specifier = ">=1.15" },
     { name = "azure-identity", marker = "extra == 'kusto'", specifier = ">=1.15" },

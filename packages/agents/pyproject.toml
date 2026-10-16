@@ -15,6 +15,8 @@ dependencies = [
     "agent-framework-ag-ui>=1.4,<2",
     # Agent Framework's MCP client; it requires the 1.x SDK.
     "mcp>=1.24,<2",
+    # Azure Identity's async credentials use aiohttp as their HTTP transport.
+    "aiohttp>=3.9",
     "azure-identity>=1.15",
     "azure-eventhub>=5.11",
     "azure-eventhub-checkpointstoreblob-aio>=1.2",

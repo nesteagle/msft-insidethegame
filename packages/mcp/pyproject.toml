@@ -12,7 +12,7 @@ dependencies = [
 
 [project.optional-dependencies]
 kusto = ["azure-kusto-data>=5", "azure-identity>=1.15"]
-cosmos = ["azure-cosmos>=4.9", "azure-identity>=1.15"]
+cosmos = ["azure-cosmos>=4.9", "azure-identity>=1.15", "aiohttp>=3.9"]
 
 [project.scripts]
 footballfoundry-mcp = "footballfoundry_mcp.server:main"
