@@ -126,9 +126,13 @@ resource agents 'Microsoft.App/containerApps@2025-01-01' = {
         probes: [{ type: 'Readiness', httpGet: { path: '/healthz', port: 8100 } }]
       }]
       scale: {
-        // One replica per partition at most; matches stay on the replica that owns their partition.
+        // One replica. The control room runs its streams inside the replica that started them, and keeps their
+        // status in memory: with several replicas, the control page's polls land on different replicas (the stream
+        // seems to come and go), and scaling in can stop a replica mid-stream. One replica handles a full matchday.
+        // To scale out (one replica per partition at most), raise maxReplicas and stream with
+        // `footballfoundry stream --sink eventhub` from outside instead of the control room.
         minReplicas: 1
-        maxReplicas: 4
+        maxReplicas: 1
         rules: [{
           name: 'eventhub-backlog'
           custom: {

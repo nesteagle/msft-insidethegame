@@ -306,6 +306,7 @@ def event_json_schema() -> dict[str, Any]:
 InsightKind = Literal[
     "goal", "red_card", "penalty", "big_chance", "momentum", "summary", "half_time", "full_time", "tactical_change",
     "spotlight",  # a quiet spell: the analysts find a story in the data on their own initiative
+    "kick_off",  # the preview at kick-off: the teams, their shapes and styles, the story coming in
 ]
 Audience = Literal["broadcast", "analyst", "casual", "player"]
 
@@ -429,6 +430,8 @@ class Insight(BaseModel):
     schema_version: str = SCHEMA_VERSION
     insight_id: str
     match_id: str
+    run_id: int = Field(default=0, description="Which run of the match (its kick-off time, ms): a match streamed again "
+                                               "gets a new one, and only the latest run's insights are shown")
     kind: InsightKind
     seq: int = Field(description="Last event the insight covers; nothing after it was known when it was written")
     period: int

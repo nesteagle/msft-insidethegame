@@ -107,6 +107,10 @@ class TriggerEngine:
         if e.type == "shot" and e.set_piece == "penalty":
             chain = state.possession_chain(e.possession_id, limit=5)
             return Moment(state.match_id, "penalty", e, chain, e.team_id, [e.player_id] if e.player_id else [], 1)
+        # Kick-off: both teams emit period_start; react to the away team's, which comes second, so both line-ups
+        # are known. A preview means viewers get something from the first whistle, not only after the first chance.
+        if e.type == "period_start" and e.period == 1 and e.team_id == state.away_id:
+            return Moment(state.match_id, "kick_off", e, [], None, [], 2)
         if e.type == "tactical_change":  # a formation switch or a player moved: visible, so worth explaining
             return Moment(state.match_id, "tactical_change", e, [e], e.team_id, [e.player_id] if e.player_id else [], 2)
         if e.type == "card" and e.outcome in ("red", "second_yellow"):

@@ -329,8 +329,8 @@ to an Eventhouse (KQL database). The flat event schema maps directly to table co
 ## Match intelligence agents
 
 [`footballfoundry-agents`](packages/agents/) turns the live stream into **insights**: timed, machine-readable
-explanations of the moments that matter (goals, red cards, big chances, momentum swings, rolling summaries,
-half-time and full-time), each personalised per viewer by audience, language, favourite club and focus player, and
+explanations of the moments that matter (a kick-off preview, goals, red cards, big chances, momentum swings,
+rolling summaries, half-time and full-time), each personalised per viewer by audience, language, favourite club and focus player, and
 translated by Azure Translator. Insights carry charts and animated replays of the move (a goals reel at full time),
 casual fans get a "Did you know?" about a player or club in the moment, and when the match goes quiet the analysts
 take the initiative with a **spotlight**: a story they found in the data themselves.

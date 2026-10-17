@@ -219,7 +219,7 @@ flowchart TB
         mi["User-assigned managed identity<br/>id-ff-*"]
 
         subgraph cae["Container Apps environment"]
-            agentsApp["agents<br/>public HTTPS: web + API + chat<br/>1-4 replicas, scales on Event Hubs backlog"]
+            agentsApp["agents<br/>public HTTPS: web + API + chat<br/>1 replica"]
             mcpApp["mcp<br/>internal only, 1-3 replicas"]
         end
 
@@ -256,8 +256,12 @@ flowchart TB
   Eventstream (set `fabricEventstreamAccess` to `false` to remove it).
 - **Network:** the agents app is the only public endpoint. The MCP server is reachable only inside the Container Apps
   environment.
-- **Scaling:** the agents app scales on the Event Hubs backlog. Each match stays on the replica that owns its
-  partition, while every replica's relay reads the whole stream, so any replica can serve any viewer.
+- **Scaling:** the agents app runs one replica, which handles a full matchday. The control room runs its streams
+  inside the replica that started them and keeps their status in memory, so with several replicas the control page
+  would poll different ones and scaling in could stop a stream mid-match. The design still scales out: raise
+  `maxReplicas` (an Event Hubs backlog rule is already there) and stream from outside with
+  `footballfoundry stream --sink eventhub`. Each match then stays on the replica that owns its partition, and every
+  replica's relay reads the whole stream, so any replica can serve any viewer.
 - **Observability:** container logs go to Log Analytics; Agent Framework's OpenTelemetry traces (each agent run and
   tool call) go to Application Insights.
 - **Not in the templates:** Microsoft Fabric. It's optional and set up by hand ([fabric/README.md](fabric/README.md));

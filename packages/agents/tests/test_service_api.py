@@ -67,3 +67,28 @@ def test_api_personalises_and_stores_profiles(match, ref, scripted):
                       json={"audience": "nonsense"})
         assert r.status_code == 400
         assert http.get("/api/profiles/nobody").status_code == 404
+
+
+def test_a_match_streamed_again_shows_only_the_new_runs_insights(match, ref):
+    import asyncio
+
+    from footballfoundry_agents.service import AnalystService, TemplateWriter
+    from footballfoundry_agents.stores import memory_stores
+
+    service = AnalystService(memory_stores(), TemplateWriter(ref), ref)
+
+    async def feed(events):
+        for e in events:
+            await service.ingest(e)
+        await service.drain()
+        return await service.stores.insights.list("M0001")
+
+    async def both():
+        first = await feed(match.events)  # a full run
+        await asyncio.sleep(0.01)  # run ids are kick-off times in ms
+        return first, await feed(match.events[:400])  # streamed again from kick-off, stopped early
+
+    first, second = asyncio.run(both())
+    assert len({i.run_id for i in first}) == 1 and len({i.run_id for i in second}) == 1
+    assert second[0].run_id > first[0].run_id
+    assert max(i.seq for i in second) <= match.events[399].seq  # nothing left over from the first run

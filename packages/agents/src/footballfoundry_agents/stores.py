@@ -62,7 +62,11 @@ class Stores:
 
 
 def _visible(items: list[Insight], as_of: int | None) -> list[Insight]:
-    return sorted((i for i in items if as_of is None or i.seq <= as_of), key=lambda i: (i.seq, i.insight_id))
+    """The latest run's insights up to `as_of`. A match streamed again (perhaps with a scenario, so a different
+    match) overwrites the insights it repeats, but the earlier run's others stay stored: they must not show."""
+    latest = max((i.run_id for i in items), default=0)
+    return sorted((i for i in items if i.run_id == latest and (as_of is None or i.seq <= as_of)),
+                  key=lambda i: (i.seq, i.insight_id))
 
 
 # -- memory --------------------------------------------------------------------------------------------------
@@ -210,9 +214,9 @@ class CosmosInsights:
             return None
 
     async def list(self, match_id: str, as_of: int | None = None) -> list[Insight]:
-        query = "SELECT * FROM c WHERE c.matchId = @m" + (" AND c.seq <= @s" if as_of is not None else "")
-        params = [{"name": "@m", "value": match_id}] + ([{"name": "@s", "value": as_of}] if as_of is not None else [])
-        items = self.c.query_items(query, parameters=params, partition_key=match_id)
+        # Every insight of the match (a few dozen), not only those up to as_of: the latest run is picked from all.
+        items = self.c.query_items("SELECT * FROM c WHERE c.matchId = @m",
+                                   parameters=[{"name": "@m", "value": match_id}], partition_key=match_id)
         return _visible([Insight.model_validate(d) async for d in items], as_of)
 
 

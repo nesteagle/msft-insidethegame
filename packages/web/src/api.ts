@@ -93,7 +93,7 @@ export interface Insight {
   insight_id: string;
   match_id: string;
   kind: "goal" | "red_card" | "penalty" | "big_chance" | "momentum" | "summary" | "half_time" | "full_time"
-    | "tactical_change" | "spotlight";
+    | "tactical_change" | "spotlight" | "kick_off";
   seq: number;
   period: number;
   minute: number;

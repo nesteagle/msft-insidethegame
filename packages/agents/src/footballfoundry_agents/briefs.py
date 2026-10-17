@@ -38,6 +38,7 @@ class Brief:
     text: str  # the fact sheet the agents read
     previous: list[str] = field(default_factory=list)  # earlier headlines, to avoid repeating them
     visuals: dict[str, Visual] = field(default_factory=dict)  # what this moment can show, built at trigger time
+    run_id: int = 0  # which run of the match (MatchState.run_id)
 
 
 def describe(e: Event, ref: Reference) -> str:
@@ -92,6 +93,34 @@ def physical_leaders(state: MatchState, ref: Reference) -> list[str]:
             f"most sprints: {ref.player_name(sprints[0])} {sprints[1]['sprints']}"]
 
 
+STYLE_WORDS = (("possession", "keep the ball"), ("directness", "play direct"), ("press_intensity", "press high"),
+               ("width", "use the width"), ("tempo", "play at a high tempo"))
+
+
+def style_phrase(club) -> str:
+    """A club's two strongest style dials in words: "like to keep the ball and press high"."""
+    if club is None:
+        return "play a balanced game"
+    dials = sorted(((getattr(club.style, k), words) for k, words in STYLE_WORDS if getattr(club.style, k) >= 0.6),
+                   reverse=True)[:2]
+    return "like to " + " and ".join(w for _, w in dials) if dials else "play a balanced game"
+
+
+def preview(state: MatchState, ref: Reference) -> dict[str, Any]:
+    """The two teams as they kick off: formation (from the team sheets), manager, style, and the ground."""
+    formation = {e.team_id: e.qualifiers.get("formation") for e in state.recent
+                 if e.type == "period_start" and e.period == 1}
+    out: dict[str, Any] = {}
+    for side, team in (("home", state.home_id), ("away", state.away_id)):
+        club = ref.club(team)
+        out[side] = {"club_id": team, "name": ref.club_name(team), "formation": formation.get(team) or
+                     (club.formation if club else "?"), "manager": club.manager if club else "?",
+                     "style": style_phrase(club)}
+    home = ref.club(state.home_id)
+    out["stadium"] = home.stadium if home else "?"
+    return out
+
+
 def _fmt(v: float, key: str) -> str:
     if key == "pass_accuracy":
         return f"{v:.0%}"
@@ -133,6 +162,16 @@ def build(state: MatchState, moment: Moment, ref: Reference) -> Brief:
     if moment.evidence:
         lines += ["", "EVIDENCE (the move or incident, oldest first):"]
         lines += ["  " + describe(x, ref) for x in moment.evidence]
+    if moment.kind == "kick_off":
+        facts["preview"] = preview(state, ref)
+        p = facts["preview"]
+        lines += ["", "KICK-OFF: set the scene for the viewer before anything has happened. Introduce the two teams, "
+                  "how they line up and like to play, and the story coming into the match. Use season_query for "
+                  "their form, the table and head-to-head (it only sees matchdays before this one).",
+                  f"  {p['home']['name']} (home, at {p['stadium']}): {p['home']['formation']}, manager "
+                  f"{p['home']['manager']}, style: {p['home']['style']}",
+                  f"  {p['away']['name']} (away): {p['away']['formation']}, manager {p['away']['manager']}, "
+                  f"style: {p['away']['style']}"]
     if moment.kind == "spotlight" and moment.angle is not None:
         facts["angle"] = moment.angle.as_fact()
         others = find_angles(state, set(state.triggers.get("angles_used", [])))
@@ -161,5 +200,5 @@ def build(state: MatchState, moment: Moment, ref: Reference) -> Brief:
         insight_id=moment.insight_id, match_id=state.match_id, kind=moment.kind, priority=moment.priority,
         seq=e.seq, period=e.period, minute=e.minute, clock=e.clock, team_id=moment.team_id,
         player_ids=list(moment.player_ids), event_ids=[x.event_id for x in moment.evidence] or [e.event_id],
-        facts=facts, text="\n".join(lines), visuals=visuals,
+        facts=facts, text="\n".join(lines), visuals=visuals, run_id=state.run_id,
     )

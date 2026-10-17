@@ -184,7 +184,9 @@ Event Hubs ─► consumer ─► MatchState ─► TriggerEngine ─► Brief �
 | [`chat.py`](src/footballfoundry_agents/chat.py) | The match assistant: per-request agent, bound tools, AG-UI endpoint |
 | [`api.py`](src/footballfoundry_agents/api.py) | The HTTP API above, and the web app's static files |
 
-**Triggers.** Goals, red cards, missed penalties, half-time and full-time always fire. Big chances (xG ≥ 0.3),
+**Triggers.** A kick-off preview (the two teams' shapes, managers and styles, and with Foundry their form and
+head-to-head), so viewers get something from the first whistle. Goals, red cards, missed penalties, half-time and
+full-time always fire. Big chances (xG ≥ 0.3),
 momentum swings (one side with ≥ 72% of the attacking threat over 10 minutes) and summaries every 15 minutes are
 capped at 3 per 10 minutes, and held back for a minute after a must-show moment. If the agents fall behind,
 waiting summaries are dropped so the overlay stays close to live.
@@ -219,6 +221,12 @@ the insight instead, so a goal is never missed because a model call was.
 snapshots go to the state store at every moment and every 100 events. A restarted replica resumes from the last
 checkpoint and snapshot without duplicating insights. With several replicas, each match stays on the replica that
 owns its partition, and the SSE stream also polls the shared store, so a viewer on any replica gets every insight.
+(In Azure the agents app runs one replica, because the control room keeps its streams in that replica's memory.)
+
+**Streaming a match again.** Each run of a match gets a `run_id` (its kick-off time) and every insight carries it.
+Streaming a match again overwrites the insights it repeats, but the earlier run's others stay stored; the store
+shows only the latest run's, so a re-run (or a scenario run, which is a different match under the same id) never
+mixes in the old run's insights.
 
 ## Tests
 

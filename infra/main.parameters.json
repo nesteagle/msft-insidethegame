@@ -7,6 +7,7 @@
     "principalId": { "value": "${AZURE_PRINCIPAL_ID}" },
     "modelName": { "value": "${FOUNDRY_MODEL_NAME=gpt-6-luna}" },
     "modelVersion": { "value": "${FOUNDRY_MODEL_VERSION=2026-09-22}" },
+    "modelCapacity": { "value": "${FOUNDRY_MODEL_CAPACITY=100}" },
     "kustoUri": { "value": "${KUSTO_URI=}" },
     "translatorLlmDeployment": { "value": "${TRANSLATOR_LLM_DEPLOYMENT=}" },
     "controlKey": { "value": "${CONTROL_KEY=}" },

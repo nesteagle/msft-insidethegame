@@ -82,3 +82,23 @@ def test_tactical_change_becomes_an_insight(league, ref):
     assert len(briefs) == 1
     insight = template_insight(briefs[0], ref)
     assert "3-5-2" in insight.headline and insight.team_id == "T12"
+
+
+def test_kick_off_preview_comes_first(match, ref):
+    from footballfoundry_agents.templates import template_insight
+
+    state, engine, first = MatchState("M0001"), TriggerEngine(), None
+    for e in match.events:
+        if state.apply(e):
+            for m in engine.check(state, e):
+                first = first or (m, build(state, m, ref))
+        if first:
+            break
+    moment, brief = first
+    assert moment.kind == "kick_off" and moment.anchor.type == "period_start" and moment.anchor.minute == 0
+    p = brief.facts["preview"]
+    assert p["home"]["formation"] and p["away"]["formation"] and "KICK-OFF" in brief.text
+    insight = template_insight(brief, ref)
+    assert insight.headline.startswith("Kick-off") and p["home"]["formation"] in insight.text
+    _, moments = run(match.events)
+    assert sum(m.kind == "kick_off" for m, _ in moments) == 1  # once, not again after half-time

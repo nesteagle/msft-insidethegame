@@ -23,7 +23,8 @@ def make_insight(brief: Brief, *, headline: str, text: str, why: str, stats: dic
                  visuals: list[tuple[str, str]] | None = None) -> Insight:
     """`visuals` are the author's picks, (type, caption); without any, the moment's default visuals are shown."""
     return Insight(
-        insight_id=brief.insight_id, match_id=brief.match_id, kind=brief.kind, seq=brief.seq, period=brief.period,
+        insight_id=brief.insight_id, match_id=brief.match_id, run_id=brief.run_id, kind=brief.kind, seq=brief.seq,
+        period=brief.period,
         minute=brief.minute, clock=brief.clock, team_id=brief.team_id,
         player_ids=player_ids if player_ids is not None else brief.player_ids,
         event_ids=event_ids if event_ids is not None else brief.event_ids,
@@ -99,6 +100,15 @@ def template_insight(brief: Brief, ref: Reference) -> Insight:
         if f.get("physical"):
             leaders = "; ".join(f["physical"][:2])
             text += f" {leaders[0].upper()}{leaders[1:]}."
+    elif brief.kind == "kick_off" and f.get("preview"):
+        p = f["preview"]
+        h, a = p["home"], p["away"]
+        headline = f"Kick-off: {h['name']} v {a['name']}"
+        text = (f"{h['name']} ({h['formation']}, managed by {h['manager']}) host {a['name']} ({a['formation']}, "
+                f"{a['manager']}) at {p['stadium']}.")
+        why = f"{h['name']} {h['style']}, while {a['name']} {a['style']}: watch how the two styles meet."
+        return make_insight(brief, headline=headline, text=text, why=why,
+                            stats={"Formations": f"{h['formation']} v {a['formation']}"}, verified=False)
     elif brief.kind == "spotlight" and f.get("angle"):
         headline, text, why, numbers = write_up(f["angle"], ref)
         return make_insight(brief, headline=headline, text=text, why=why, stats=numbers, verified=False)

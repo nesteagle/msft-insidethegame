@@ -74,6 +74,7 @@ azd env set AZURE_LOCATION eastus2                # a region with the model and 
 # optional:
 # azd env set FOUNDRY_MODEL_NAME gpt-6-luna
 # azd env set FOUNDRY_MODEL_VERSION 2026-09-22
+# azd env set FOUNDRY_MODEL_CAPACITY 100                # thousands of tokens per minute; raise it for several matches at once
 # azd env set TRANSLATOR_LLM_DEPLOYMENT <deployment>   # Translator's LLM option for casual fans
 # turn on the control room (/control) with a random key; share it with testers:
 azd env set CONTROL_KEY ([guid]::NewGuid().ToString("N"))
@@ -136,6 +137,7 @@ Open `AGENTS_URL` in a browser.
 | --- | --- |
 | Open `/control`, enter the key | The control room: start a stream, watch its progress, stop it |
 | Open the page | M0015 marked "● live"; players moving; score updating |
+| Kick-off | A **Kick-off** card previewing the match: both teams' shapes, managers and styles |
 | Watch a minute | Insight cards for goals, chances and summaries; agent-written text, many with the **fact-checked** tick |
 | A goal goes in | A goal banner, then a lower third over the pitch; the card shows **The move**, an animated replay of the goal |
 | Half-time, then full-time | The xG race and a head-to-head; at full time a **Goals reel** (every goal in turn), the xG race and a shot map |
@@ -182,8 +184,12 @@ Expect a "tactical change" insight around 62'; compare the agents' explanations 
 
 ```powershell
 uv run footballfoundry stream --matchday 1 --speed 30 --sink eventhub
-az containerapp replica list -n $agents -g $env:AZURE_RESOURCE_GROUP -o table   # the agents may scale out
+az containerapp replica list -n $agents -g $env:AZURE_RESOURCE_GROUP -o table   # one replica, by design
 ```
+
+Ten matches at once call the model ten times as often. If the deployment's tokens-per-minute quota runs out, the
+agents fall back to template insights (see [Troubleshooting](#11-troubleshooting)); for agent-written insights
+throughout, stream one to three matches at a time or raise the quota.
 
 **Restart recovery:** restart the agents in the middle of a match.
 
@@ -254,6 +260,7 @@ azd provision              # after infra changes (Bicep, environment settings)
 | Chat answers "running offline" | No Foundry client | As for missing insights |
 | A match you streamed doesn't appear | Someone else is streaming the same match id | Agents logs: `already being streamed`; use another `--match-id` |
 | `AGENTS_URL` doesn't load, `/healthz` fails | The container apps were stopped to save money | Start them ([12. Costs and clean-up](#12-costs-and-clean-up)) |
+| Many insights are unverified and read like templates ("GOAL 16' Michael Donnelly (Upperlee United)") | The agent workflow failed or timed out and the template stood in. Usually the model's tokens-per-minute quota, with several matches at once | Agents logs: `workflow failed, using template`, HTTP 429. Stream fewer matches at once, or raise the quota: `azd env set FOUNDRY_MODEL_CAPACITY 300` (thousands of tokens per minute, within your subscription's quota), then `azd provision` |
 | No Spotlight cards | The stream runs very fast (a spotlight needs 10 real seconds without an insight), or every story has been told | Stream at 30× or slower |
 | Old insights have no charts or "Did you know?" | They were written before the update; stored insights aren't rewritten | Stream the match again from the control room |
 | Old matches stuck in the dropdown, "(no new events)" | A stream stopped partway | Ignore them, or restart the agents revision |
@@ -266,7 +273,7 @@ While deployed, the always-on parts cost roughly **$3–5 a day** at list prices
 
 | Resource | Roughly, per day |
 | --- | --- |
-| Container Apps: agents (0.5 vCPU, 1 GiB) and MCP (1 vCPU, 2 GiB), one replica each | $2–3.50 (the agents count as active, since they read Event Hubs all the time; the MCP server is mostly idle) |
+| Container Apps: agents (1 vCPU, 2 GiB) and MCP (0.5 vCPU, 1 GiB), one replica each | $2–3.50 (the agents count as active, since they read Event Hubs all the time; the MCP server is mostly idle) |
 | Event Hubs Standard, 1 throughput unit | ~$0.75 |
 | Container Registry Basic | ~$0.17 |
 | Log Analytics / Application Insights | Under the free 5 GB a month for light testing |
