@@ -304,7 +304,8 @@ def event_json_schema() -> dict[str, Any]:
 
 
 InsightKind = Literal[
-    "goal", "red_card", "penalty", "big_chance", "momentum", "summary", "half_time", "full_time", "tactical_change"
+    "goal", "red_card", "penalty", "big_chance", "momentum", "summary", "half_time", "full_time", "tactical_change",
+    "spotlight",  # a quiet spell: the analysts find a story in the data on their own initiative
 ]
 Audience = Literal["broadcast", "analyst", "casual", "player"]
 
@@ -350,7 +351,7 @@ class ShotPoint(BaseModel):
 
 
 class MinuteThreat(BaseModel):
-    minute: int
+    minute: int = Field(description="Minutes from kick-off without the restart at 45' (as ShotPoint.t)")
     home: float
     away: float
 
@@ -383,7 +384,8 @@ class Visual(BaseModel):
     threat: list[MinuteThreat] = Field(default_factory=list)
     rows: list[CompareRow] = Field(default_factory=list)
     now: float | None = Field(default=None, description="xg_race: the match minute it was drawn at (as ShotPoint.t)")
-    half_time: float | None = Field(default=None, description="xg_race: where the second half starts (as ShotPoint.t)")
+    half_time: float | None = Field(default=None, description="xg_race, momentum: where the second half starts "
+                                                              "(as ShotPoint.t)")
 
 
 class Trivia(BaseModel):

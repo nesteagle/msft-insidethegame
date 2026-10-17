@@ -331,7 +331,9 @@ to an Eventhouse (KQL database). The flat event schema maps directly to table co
 [`footballfoundry-agents`](packages/agents/) turns the live stream into **insights**: timed, machine-readable
 explanations of the moments that matter (goals, red cards, big chances, momentum swings, rolling summaries,
 half-time and full-time), each personalised per viewer by audience, language, favourite club and focus player, and
-translated by Azure Translator.
+translated by Azure Translator. Insights carry charts and animated replays of the move (a goals reel at full time),
+casual fans get a "Did you know?" about a player or club in the moment, and when the match goes quiet the analysts
+take the initiative with a **spotlight**: a story they found in the data themselves.
 
 ```text
 event ─► match state ─► trigger rules ─► analyst / recap writer ─► fact-checker ─► narrator ─► insight
@@ -535,3 +537,4 @@ data/
 - [x] Visuals: animated move replays, goals reel, shot map, xG race, momentum and team comparison in insights and chat
 - [x] Lore for casual fans: "Did you know?" player and club facts from the league data, retold in five languages
       by a Foundry storyteller agent when one is configured
+- [x] Spotlight: when no insight has fired for 10 seconds (and 3 match minutes), the analysts find a story themselves

@@ -11,6 +11,7 @@ import { Visuals } from "./Visual";
 const KIND_COLOR: Record<Insight["kind"], "danger" | "important" | "brand" | "informative" | "subtle" | "success"> = {
   goal: "success", red_card: "danger", penalty: "important", big_chance: "brand", momentum: "informative",
   summary: "subtle", half_time: "informative", full_time: "informative", tactical_change: "important",
+  spotlight: "brand",
 };
 
 /**

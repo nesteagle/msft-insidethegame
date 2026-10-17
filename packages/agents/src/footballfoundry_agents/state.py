@@ -50,9 +50,13 @@ class MatchState:
         self.recent: deque[Event] = deque(maxlen=RECENT)
         self.off: set[str] = set()  # substituted off or sent off
         self.keepers: dict[str, str] = {}  # team -> goalkeeper, from the kick-off team sheets
+        self.player_team: dict[str, str] = {}  # every player seen on the ball -> their team
         # The whole match, compact, for charts and the full-time reel (`recent` only reaches back ~200 events).
         self.shots: list[dict[str, Any]] = []
         self.p1_end_minute = 45  # the second half's clock restarts at 45'; charts continue from here
+        # Threat per continuous minute (as ShotPoint.t), for charts: `threat_by_minute` keys on the clock minute,
+        # where first-half stoppage time and the second half's 45'-48' share a key.
+        self.threat_by_t: dict[str, dict[int, float]] = defaultdict(lambda: defaultdict(float))
         self.goal_moves: list[dict[str, Any]] = []  # {seq, clock, player_id, steps}
         self.triggers: dict[str, Any] = {}  # bookkeeping owned by TriggerEngine
 
@@ -84,14 +88,16 @@ class MatchState:
         add_event(self.teams[e.team_id], e)
         if e.player_id and e.type != "substitution":
             add_event(self.players[e.player_id], e)
+            self.player_team[e.player_id] = e.team_id
         if e.player_id and (e.type == "substitution" or (e.type == "card" and e.outcome in ("red", "second_yellow"))):
             self.off.add(e.player_id)
         t = threat(e)
         if t:
             self.threat_by_minute[e.team_id][e.minute] += t
+            self.threat_by_t[e.team_id][int(self._t(e))] += t
         self.recent.append(e)
         if e.type == "shot" and e.x is not None:
-            t = e.minute + e.second / 60 + (self.p1_end_minute - 44 if e.period == 2 else 0)
+            t = self._t(e)
             self.shots.append({"seq": e.seq, "period": e.period, "minute": e.minute, "t": round(t, 2),
                                "clock": e.clock, "team_id": e.team_id,
                                "player_id": e.player_id, "x": e.x, "y": e.y, "xg": e.xg or 0.0,
@@ -123,6 +129,10 @@ class MatchState:
             return sum(v for m, v in self.threat_by_minute[team_id].items() if m >= lo) if team_id else 0.0
 
         return round(total(self.home_id), 2), round(total(self.away_id), 2)
+
+    def _t(self, e: Event) -> float:
+        """Minutes from kick-off without the restart at 45' (see `ShotPoint.t`)."""
+        return e.minute + e.second / 60 + (self.p1_end_minute - 44 if e.period == 2 else 0)
 
     def match_minute(self) -> float:
         """Where the match is, in the shots' continuous minutes (see `ShotPoint.t`)."""
@@ -158,9 +168,11 @@ class MatchState:
             "teams": {k: dict(v) for k, v in self.teams.items()},
             "players": {k: dict(v) for k, v in self.players.items()},
             "threat_by_minute": {k: {str(m): t for m, t in v.items()} for k, v in self.threat_by_minute.items()},
+            "threat_by_t": {k: {str(m): t for m, t in v.items()} for k, v in self.threat_by_t.items()},
             "recent": [e.model_dump(mode="json") for e in self.recent],
             "off": sorted(self.off),
             "keepers": self.keepers,
+            "player_team": self.player_team,
             "shots": self.shots,
             "p1_end_minute": self.p1_end_minute,
             "goal_moves": self.goal_moves,
@@ -180,9 +192,12 @@ class MatchState:
             s.players[k].update(v)
         for k, v in snap["threat_by_minute"].items():
             s.threat_by_minute[k].update({int(m): t for m, t in v.items()})
+        for k, v in snap.get("threat_by_t", {}).items():
+            s.threat_by_t[k].update({int(m): t for m, t in v.items()})
         s.recent.extend(Event.model_validate(e) for e in snap["recent"])
         s.off = set(snap.get("off", []))
         s.keepers = dict(snap.get("keepers", {}))
+        s.player_team = dict(snap.get("player_team", {}))
         s.shots = list(snap.get("shots", []))
         s.p1_end_minute = snap.get("p1_end_minute", 45)
         s.goal_moves = list(snap.get("goal_moves", []))

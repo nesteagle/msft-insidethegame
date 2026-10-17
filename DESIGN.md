@@ -67,14 +67,16 @@ flowchart TB
     local --> state
     ehA --> state["MatchState (state.py)<br/>score, stats, threat per minute,<br/>last 200 events"]
 
-    state --> trig["TriggerEngine (triggers.py)<br/>goal, red card, penalty, big chance,<br/>momentum swing, summary, HT, FT"]
+    state --> trig["TriggerEngine (triggers.py)<br/>goal, red card, penalty, big chance,<br/>momentum swing, summary, HT, FT,<br/>spotlight when it goes quiet"]
     trig --> brief["Brief (briefs.py)<br/>facts frozen at that moment"]
-    brief --> q["Per-match queue<br/>(drops stale summaries if behind)"]
+    brief --> q["Per-match queue<br/>(drops stale filler if behind)"]
     q --> writer{"Writer"}
     writer -->|"Foundry configured"| wf["Agent Framework workflow<br/>(workflow.py)"]
     writer -->|"offline or failure"| tpl["Templates (templates.py)"]
-    wf --> ins["Insight"]
+    wf --> ins["Insight<br/>+ visuals, fun fact"]
     tpl --> ins
+    q --> lore["Lore (lore.py)<br/>fun fact, storyteller agent"]
+    lore --> ins
     ins --> store[("InsightStore<br/>memory / file / Cosmos")]
     state -.->|"snapshots"| sstore[("StateStore")]
 
@@ -94,6 +96,13 @@ flowchart TB
   insights in order. If the agents fall behind, waiting filler (rolling summaries) is dropped so the overlay stays
   close to live.
 - **Briefs freeze the facts at trigger time.** A slow model call can't see events that happened after the moment.
+  The visuals a moment can show (a replay of the move, the xG race, the shot map...) are built then too, in code,
+  so their numbers are always the real ones.
+- **The analysts take the initiative.** When no insight has fired for 10 real seconds and 3 match minutes, a
+  spotlight moment asks them to find a story in the data (the player running the game, possession without threat,
+  a busy keeper...); code suggests the best one.
+- **A fun fact for casual fans** about a player or club in the moment, from the league data, is picked while the
+  analysts write; with Foundry, the storyteller agent retells it in five languages.
 - **Restarts and redeliveries are safe.** Insight ids are deterministic (`<match>-<kind>-<seq>`), match state
   ignores events it has already seen, and state is snapshotted at every moment and every 100 events.
 
@@ -112,7 +121,7 @@ flowchart LR
     fc -->|"problems found,<br/>attempts left"| analyst
     fc -->|"problems found,<br/>attempts left"| recap
     fc -->|"approved, or out of attempts<br/>(published as unverified)"| narr["Narrator<br/>broadcast copy"]
-    narr --> out["Insight<br/>headline, text, why it matters,<br/>stats, event ids, verified flag"]
+    narr --> out["Insight<br/>headline, text, why it matters,<br/>stats, visuals, event ids, verified flag"]
 
     out -.->|"on demand, per viewer, cached"| pers["Personaliser<br/>audience, club, player<br/>(English)"]
     pers -.->|"viewer's language"| tr["Azure Translator<br/>NMT, names protected;<br/>LLM + informal tone for fans"]
@@ -120,11 +129,12 @@ flowchart LR
 
 | Agent | Job | Tools |
 | --- | --- | --- |
-| Analyst | What happened, how it was created, why it matters; cites event ids | MCP |
+| Analyst | What happened, how it was created, why it matters; cites event ids; picks and captions the visuals; on a spotlight, chooses the story | MCP |
 | Recap writer | The full-time story, from the timeline of earlier insights | MCP |
-| Fact-checker | Checks every claim; sends problems back to the author (up to 2 attempts) | MCP |
+| Fact-checker | Checks every claim, visual captions included; sends problems back to the author (up to 2 attempts) | MCP |
 | Narrator | Broadcast copy from the approved analysis only | none |
 | Personaliser | Rewrites per audience, favourite club and followed player, without new facts | none |
+| Storyteller | Retells a league fact as a short "Did you know?" story for casual fans, in five languages | none |
 | Azure Translator | Not an agent: translates the personalised English into the viewer's language, names protected | n/a |
 
 Agents hand off typed Pydantic outputs, not free text. If any step fails or times out, a template insight is
@@ -194,7 +204,9 @@ assistant can act on what the viewer sees.
 | --- | --- |
 | `match_state`, `events`, `player_stats`, `lookup`, `insights` | The relay log and the insights store, up to `as_of` |
 | `season_query` | The MCP server, matchdays before this match only |
-| `explain_moment` | Hands one moment to the analyst workflow and returns the verified explanation |
+| `explain_moment` | Hands one moment to the analyst workflow and returns the verified explanation, with its visuals |
+| `show_visual` | Draws a chart or a move replay under the answer (works offline too, by keyword) |
+| `lore` | A player's or club's profile and fun facts, for casual fans |
 | `seek_to`, `focus_player`, `set_view` | The web page |
 
 ## 6. Azure infrastructure

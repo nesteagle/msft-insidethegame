@@ -111,7 +111,8 @@ in the viewer's language from the fact's `key` and `params`.
 With Foundry configured, the **storyteller** agent retells each fact as a one- or two-sentence story, adding
 harmless colour (a nickname, a fan tradition) but no new numbers or match facts, in English, Spanish, French,
 Portuguese and German at once. Stories are cached per fact; if the storyteller fails, the plain fact is shown. The
-web app marks them "Told by the storyteller agent".
+web app marks them "Told by the storyteller agent". The fact is picked, and the storyteller called, while the
+analysts write the insight, so it never delays it.
 
 ## Translation
 
@@ -173,6 +174,7 @@ Event Hubs ─► consumer ─► MatchState ─► TriggerEngine ─► Brief �
 | [`templates.py`](src/footballfoundry_agents/templates.py) | Deterministic insights: offline mode, and the fallback when the workflow fails |
 | [`visuals.py`](src/footballfoundry_agents/visuals.py) | Charts and move replays for insights and chat answers, built from the match state |
 | [`lore.py`](src/footballfoundry_agents/lore.py) | "Did you know?" facts from the league data, and the storyteller agent |
+| [`spotlight.py`](src/footballfoundry_agents/spotlight.py) | The stories a quiet spell can be spent on, and their offline write-up |
 | [`service.py`](src/footballfoundry_agents/service.py) | Wires it together; one writer per match keeps insights in order |
 | [`stores.py`](src/footballfoundry_agents/stores.py) | Insights, state snapshots and profiles in memory, files or Cosmos DB |
 | [`guard.py`](src/footballfoundry_agents/guard.py) | First stream wins: ignores a second stream (another `stream_id`) of a match that's still live |
@@ -187,13 +189,24 @@ momentum swings (one side with ≥ 72% of the attacking threat over 10 minutes) 
 capped at 3 per 10 minutes, and held back for a minute after a must-show moment. If the agents fall behind,
 waiting summaries are dropped so the overlay stays close to live.
 
+**Spotlight: the agents' own initiative.** When no insight has fired for 10 real seconds *and* 3 match minutes
+(`TriggerConfig.idle_after_s`, `idle_min_gap_min`), the trigger engine fires a `spotlight` moment
+([spotlight.py](src/footballfoundry_agents/spotlight.py)). Code finds the stories in the match so far: the player
+running the game, the one winning everything back, a dribbler, a busy keeper, possession without threat, a side
+creating more without being ahead, no shot on target yet, corner after corner. The analyst gets the best one as a
+suggestion and the others as alternatives, and may find a better story with the tools; offline, the template
+writes up the suggestion, with the visual that shows it. Each story is told at most once per team per match.
+Real seconds are what a viewer feels (10 s is 5 match minutes at 30×); the match-minute floor keeps a live 1×
+stream from asking every 10 seconds, and a very fast replay gets none. Spotlights are filler (priority 3), so they're
+the first to go if the agents fall behind.
+
 **Agents.** Each has one job and its own instructions:
 
 | Agent | Job | Tools |
 | --- | --- | --- |
-| Analyst | What happened, how it was created, why it matters; cites event ids | MCP |
-| Recap writer | The full-time story, from the timeline of earlier insights | MCP |
-| Fact-checker | Checks every claim; sends the problems back to the author (up to 2 attempts) | MCP |
+| Analyst | What happened, how it was created, why it matters; cites event ids; picks and captions the visuals. On a spotlight, chooses the story to tell | MCP |
+| Recap writer | The full-time story, from the timeline of earlier insights; picks the goals reel, xG race or shot map | MCP |
+| Fact-checker | Checks every claim, visual captions included; sends the problems back to the author (up to 2 attempts) | MCP |
 | Narrator | Broadcast copy from the approved analysis only | none |
 | Personaliser | Rewrites per audience, favourite club and focus player, without new facts (in English when Azure Translator is configured) | none |
 | Storyteller | Retells a league fact as a short story for casual fans, in five languages | none |
@@ -211,4 +224,7 @@ owns its partition, and the SSE stream also polls the shared store, so a viewer 
 
 `pytest packages/agents` runs the real Agent Framework workflow against a scripted chat client: the fact-checker
 loop, recap routing, the template fallback, personalisation, restart recovery, the API, the relay, and a chat run
-over AG-UI that checks the assistant's tools can't see past the viewer.
+over AG-UI that checks the assistant's tools can't see past the viewer. Also: visuals (built at trigger time, so
+nothing after the moment gets in; the agents' picks; the chat's offline charts), lore (the records are really true,
+no fact twice in a match, the storyteller in five languages and its fallback), and the spotlight trigger at 30×, 1×
+and a very fast replay, with a fake clock.

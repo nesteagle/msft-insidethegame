@@ -41,6 +41,7 @@ OFFER: dict[str, tuple[str, ...]] = {
     "summary": ("compare", "momentum", "xg_race", "shot_map"),
     "half_time": ("xg_race", "compare", "shot_map", "momentum"),
     "full_time": ("move", "xg_race", "shot_map", "compare", "momentum"),
+    "spotlight": ("compare", "momentum", "xg_race", "shot_map"),
 }
 DEFAULTS: dict[str, tuple[str, ...]] = {
     "goal": ("move",), "penalty": ("move",), "big_chance": ("move",), "momentum": ("momentum",),
@@ -80,10 +81,11 @@ def build(state: MatchState, kind: str, ref: Reference, *, anchor: Event | None 
             v.half_time = state.p1_end_minute + 1 if state.period == 2 else None
         return v if v.shots or kind == "xg_race" else None
     if kind == "momentum":
-        last = state.minute
-        series = [MinuteThreat(minute=m, home=round(state.threat_by_minute[h].get(m, 0.0), 2),
-                               away=round(state.threat_by_minute[a].get(m, 0.0), 2)) for m in range(last + 1)]
+        last = int(state.match_minute())
+        series = [MinuteThreat(minute=m, home=round(state.threat_by_t[h].get(m, 0.0), 2),
+                               away=round(state.threat_by_t[a].get(m, 0.0), 2)) for m in range(last + 1)]
         v.threat = series
+        v.half_time = state.p1_end_minute + 1 if state.period == 2 else None
         return v if any(t.home or t.away for t in series) else None
     if kind == "compare":
         hs, as_ = state.team_stats(h), state.team_stats(a)
@@ -110,12 +112,15 @@ def offered(state: MatchState, kind: InsightKind, ref: Reference, *, anchor: Eve
     return out
 
 
-def choose(offer: dict[str, Visual], kind: str, picks: list[tuple[str, str]] | None = None) -> list[Visual]:
-    """The visuals to publish: the agent's picks (type, caption) that are on offer, else the defaults."""
+def choose(offer: dict[str, Visual], kind: str, picks: list[tuple[str, str]] | None = None,
+           default: str | None = None) -> list[Visual]:
+    """The visuals to publish: the agent's picks (type, caption) that are on offer, else `default` (a spotlight's
+    story says which visual shows it best), else the kind's defaults."""
     chosen = [offer[t].model_copy(update={"caption": c}) for t, c in picks or [] if t in offer]
     seen: set[str] = set()
     chosen = [v for v in chosen if not (v.type in seen or seen.add(v.type))][:3]
-    return chosen or [offer[t] for t in DEFAULTS.get(kind, ()) if t in offer]
+    defaults = (default,) if default else DEFAULTS.get(kind, ())
+    return chosen or [offer[t] for t in defaults if t in offer]
 
 
 def describe_offer(offer: dict[str, Visual]) -> str:

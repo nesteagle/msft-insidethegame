@@ -93,7 +93,7 @@ export interface Insight {
   insight_id: string;
   match_id: string;
   kind: "goal" | "red_card" | "penalty" | "big_chance" | "momentum" | "summary" | "half_time" | "full_time"
-    | "tactical_change";
+    | "tactical_change" | "spotlight";
   seq: number;
   period: number;
   minute: number;
@@ -165,7 +165,7 @@ export interface Visual {
   threat: { minute: number; home: number; away: number }[];
   rows: { key: string; home: number; away: number }[];
   now: number | null; // xg_race: the minute it was drawn at, as ShotPoint.t
-  half_time: number | null; // xg_race: where the second half starts, as ShotPoint.t
+  half_time: number | null; // xg_race, momentum: where the second half starts, as ShotPoint.t
 }
 
 export interface Viewer {

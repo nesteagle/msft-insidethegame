@@ -12,6 +12,7 @@ from footballfoundry_schema import Insight, InsightVariant
 
 from footballfoundry_agents.briefs import Brief
 from footballfoundry_agents.reference import Reference
+from footballfoundry_agents.spotlight import write_up
 from footballfoundry_agents.visuals import choose
 
 DISPLAY_S = {1: 12.0, 2: 8.0, 3: 6.0}
@@ -28,7 +29,7 @@ def make_insight(brief: Brief, *, headline: str, text: str, why: str, stats: dic
         event_ids=event_ids if event_ids is not None else brief.event_ids,
         headline=headline[:80], text=text, why_it_matters=why, stats=stats, priority=brief.priority,
         display_s=DISPLAY_S[brief.priority], verified=verified, created_at=datetime.now(timezone.utc),
-        visuals=choose(brief.visuals, brief.kind, visuals),
+        visuals=choose(brief.visuals, brief.kind, visuals, default=brief.facts.get("angle", {}).get("visual")),
     )
 
 
@@ -98,6 +99,9 @@ def template_insight(brief: Brief, ref: Reference) -> Insight:
         if f.get("physical"):
             leaders = "; ".join(f["physical"][:2])
             text += f" {leaders[0].upper()}{leaders[1:]}."
+    elif brief.kind == "spotlight" and f.get("angle"):
+        headline, text, why, numbers = write_up(f["angle"], ref)
+        return make_insight(brief, headline=headline, text=text, why=why, stats=numbers, verified=False)
     else:  # summary
         headline = f"{brief.clock}: {score}"
         text = (f"Possession {f['possession'][0]:.0%}-{f['possession'][1]:.0%}. "

@@ -5,7 +5,8 @@ to read the data.
 
 | Module | What's in it |
 | --- | --- |
-| `footballfoundry_schema` | Pydantic models: `League`, `Club`, `Player`, `Fixture`, `MatchInfo` and `Event` (what the generator produces), `Qualifiers` (every key an event's `qualifiers` may carry, enforced on validation), and `Insight` / `InsightVariant` (what the agents produce); `event_json_schema()` for the same contract as JSON Schema |
+| `footballfoundry_schema` | Pydantic models: `League`, `Club`, `Player`, `Fixture`, `MatchInfo` and `Event` (what the generator produces), `Qualifiers` (every key an event's `qualifiers` may carry, enforced on validation), and `Insight` / `InsightVariant` (what the agents produce), with an insight's `Visual`s (charts and move replays:
+`Clip`, `MoveStep`, `ShotPoint`, `MinuteThreat`, `CompareRow`) and `Trivia` (the casual fan's fun fact); `event_json_schema()` for the same contract as JSON Schema |
 | `footballfoundry_schema.stats` | One definition of the box-score numbers (`team_stats`, `player_stats`, `possession_share`) and of attacking `threat`, shared by the generator, the agents and the MCP server |
 
 ```python

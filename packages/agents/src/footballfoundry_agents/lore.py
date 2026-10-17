@@ -18,19 +18,19 @@ import asyncio
 import logging
 from dataclasses import dataclass
 from datetime import date
-from typing import Any
+from typing import Any, Protocol
 
 from agent_framework import Agent
 from pydantic import BaseModel, Field
 
-from footballfoundry_schema import Club, Insight, Player, Trivia
+from footballfoundry_schema import Club, Player, Trivia
 
 from footballfoundry_agents.reference import Reference
 
 log = logging.getLogger(__name__)
 
 LANGUAGES = ("es", "fr", "pt", "de")  # the web app's languages besides English
-PLAYER_MOMENTS = ("goal", "penalty", "big_chance", "red_card", "tactical_change")
+PLAYER_MOMENTS = ("goal", "penalty", "big_chance", "red_card", "tactical_change", "spotlight")
 
 POSITION = {"GK": "goalkeeper", "RB": "right-back", "CB": "centre-back", "LB": "left-back",
             "DM": "defensive midfielder", "CM": "central midfielder", "AM": "attacking midfielder",
@@ -66,6 +66,14 @@ TEXT = {
     "most_direct": "{club} are the most direct team in the league: they go forward fast.",
     "manager": "{manager} manages {club}, usually in a {formation}.",
 }
+
+
+class Moment(Protocol):
+    """What a fun fact is picked for: a brief (while the analysts write) or a published insight."""
+
+    kind: str
+    player_ids: list[str]
+    team_id: str | None
 
 
 def _age(born: date, on: date) -> int:
@@ -175,14 +183,14 @@ class Lore:
 
     # -- picking -------------------------------------------------------------------------------------------------
 
-    def subjects(self, insight: Insight, clubs: tuple[str | None, str | None]) -> list[str]:
+    def subjects(self, insight: Moment, clubs: tuple[str | None, str | None]) -> list[str]:
         """Who the fun fact can be about, best first: the player in the moment, then their club, then the other."""
         player = insight.player_ids[:1] if insight.kind in PLAYER_MOMENTS else []
         team = [insight.team_id] if insight.team_id else []
         first = team + player if insight.kind == "tactical_change" else player + team  # a change is the manager's
         return [s for s in dict.fromkeys(first + [c for c in clubs if c]) if s in self.facts]
 
-    async def pick(self, insight: Insight, clubs: tuple[str | None, str | None], used: set[str]) -> Trivia | None:
+    async def pick(self, insight: Moment, clubs: tuple[str | None, str | None], used: set[str]) -> Trivia | None:
         """A fact nobody has seen this match, told by the storyteller when there is one."""
         fact = next((f for s in self.subjects(insight, clubs) for f in self.facts[s] if f.trivia_id not in used), None)
         if fact is None or self.storyteller is None:

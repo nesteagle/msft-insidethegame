@@ -33,7 +33,8 @@ uv run footballfoundry-agents serve --offline --store file
 ```
 
 Open the **control room** at http://127.0.0.1:8100/control and start a stream, e.g. fixture M0015 at 30×. Press
-**Watch** to open it at http://127.0.0.1:8100. The control room also runs scenarios (with their ground truth), finds
+**Watch** to open it at http://127.0.0.1:8100. Offline you still get the visuals, the casual fan's "Did you know?"
+and spotlights (from templates), and the chat draws charts when you ask for one ("show me the xG race"). The control room also runs scenarios (with their ground truth), finds
 dramatic matches and regenerates the season files.
 
 The terminal way still works, in two terminals, either order:
@@ -136,7 +137,11 @@ Open `AGENTS_URL` in a browser.
 | Open `/control`, enter the key | The control room: start a stream, watch its progress, stop it |
 | Open the page | M0015 marked "● live"; players moving; score updating |
 | Watch a minute | Insight cards for goals, chances and summaries; agent-written text, many with the **fact-checked** tick |
-| A goal goes in | A goal banner, then a lower third over the pitch |
+| A goal goes in | A goal banner, then a lower third over the pitch; the card shows **The move**, an animated replay of the goal |
+| Half-time, then full-time | The xG race and a head-to-head; at full time a **Goals reel** (every goal in turn), the xG race and a shot map |
+| A quiet spell (no insight for ~10 s at 30×) | A **Spotlight** card: a story the analysts found, e.g. who's running the game, with a chart |
+| **View for = Casual fan** | A "Did you know?" on each card about a player or club in the moment; with Foundry, many say "Told by the storyteller agent" |
+| Casual fan + **Español** | The "Did you know?" in Spanish too |
 | **View for = Analyst** | Insight text becomes more tactical and number-heavy |
 | **Language = Español** | Interface in Spanish; insights translated, with "Traducido con Azure Translator" |
 | **Follow player** | A yellow ring on that player; their insights highlighted |
@@ -144,6 +149,8 @@ Open `AGENTS_URL` in a browser.
 | Click a minute on the momentum strip | Replays from that minute |
 | Chat: "How did the first goal come about?" | A streamed answer about only what you've seen, with notes like "Checked events" |
 | Chat: "Show me that again" | The pitch replays the moment (a frontend tool) |
+| Chat: "Show me the xG race" | The chart drawn under the answer |
+| Chat (casual fan): "Tell me about the scorer" | The answer can include a fun fact from the lore tool |
 | Chat: "How are both teams doing this season?" | An answer from season data, through the MCP server |
 | **Season** tab while M0015 plays | The table after matchday 1, with a note that matchday 2 is live; **Show the full season** shows all 38 |
 | Season → Stats → a leader | The player's profile: season totals, physical data, match by match |
@@ -246,6 +253,8 @@ azd provision              # after infra changes (Bicep, environment settings)
 | Insights stay English in Spanish | Translator not configured, or its role is missing | Agents logs: the `translation:` line, 403s from Translator |
 | Chat answers "running offline" | No Foundry client | As for missing insights |
 | A match you streamed doesn't appear | Someone else is streaming the same match id | Agents logs: `already being streamed`; use another `--match-id` |
+| No Spotlight cards | The stream runs very fast (a spotlight needs 10 real seconds without an insight), or every story has been told | Stream at 30× or slower |
+| Old insights have no charts or "Did you know?" | They were written before the update; stored insights aren't rewritten | Stream the match again from the control room |
 | Old matches stuck in the dropdown, "(no new events)" | A stream stopped partway | Ignore them, or restart the agents revision |
 | `/control` says the control room is off | No `CONTROL_KEY` on the deployment | `azd env set CONTROL_KEY <key>`, then `azd provision` |
 | A control-room stream to Event Hubs fails with 401 | The app's Data Sender role is still propagating | Wait 5–10 minutes and start it again |

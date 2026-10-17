@@ -12,6 +12,7 @@ from typing import Any
 from footballfoundry_schema import Event, InsightKind, Visual
 
 from footballfoundry_agents.reference import Reference
+from footballfoundry_agents.spotlight import find_angles, write_up
 from footballfoundry_agents.state import MatchState
 from footballfoundry_agents.triggers import Moment
 from footballfoundry_agents.visuals import describe_offer, offered
@@ -132,7 +133,17 @@ def build(state: MatchState, moment: Moment, ref: Reference) -> Brief:
     if moment.evidence:
         lines += ["", "EVIDENCE (the move or incident, oldest first):"]
         lines += ["  " + describe(x, ref) for x in moment.evidence]
-    if moment.kind in ("summary", "half_time", "full_time", "momentum", "tactical_change"):
+    if moment.kind == "spotlight" and moment.angle is not None:
+        facts["angle"] = moment.angle.as_fact()
+        others = find_angles(state, set(state.triggers.get("angles_used", [])))
+        lines += ["", "SPOTLIGHT: nothing decisive has happened for a while, so take the initiative and tell the "
+                  "viewer something interesting about this match that they may have missed. Suggested story (from "
+                  "the data): " + write_up(facts["angle"], ref)[1]]
+        if others:
+            lines.append("Other stories you could tell instead: "
+                         + " | ".join(write_up(a.as_fact(), ref)[1] for a in others[:3]))
+        lines.append("Or find a better one with the tools. Don't repeat the earlier insights.")
+    if moment.kind in ("summary", "half_time", "full_time", "momentum", "tactical_change", "spotlight"):
         recent_key = [x for x in state.recent if x.type in ("shot", "card", "substitution")][-8:]
         if recent_key:
             lines += ["", "RECENT KEY EVENTS:"] + ["  " + describe(x, ref) for x in recent_key]

@@ -71,7 +71,13 @@ def test_compare_and_momentum(played, ref):
     assert row["goals"].home == state.home_score and row["goals"].away == state.away_score
     assert row["possession"].home + row["possession"].away == pytest.approx(1, abs=0.01)
     momentum = build_visual(state, "momentum", ref)
-    assert len(momentum.threat) == state.minute + 1
+    # One bar per minute from kick-off to now, the second half after first-half stoppage time (no shared minutes),
+    # and every bit of threat in exactly one bar.
+    assert len(momentum.threat) == int(state.match_minute()) + 1
+    assert momentum.half_time == state.p1_end_minute + 1
+    for side, team in (("home", state.home_id), ("away", state.away_id)):
+        total = sum(state.threat_by_minute[team].values())
+        assert sum(getattr(m, side) for m in momentum.threat) == pytest.approx(total, abs=0.05)
 
 
 def test_agent_picks_visuals_only_from_the_offer(played, ref, scripted):

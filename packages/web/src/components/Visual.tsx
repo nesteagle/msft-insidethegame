@@ -152,6 +152,7 @@ function MoveReplay({ v, league }: { v: Visual; league: League }) {
     let last = performance.now();
     const tick = (now: number) => {
       const c = clock.current;
+      if (c.clip >= clips.length) c.clip = 0; // the visual was replaced by one with fewer clips
       c.t = (Number.isFinite(c.t) ? c.t : 0) + (now - last);
       last = now;
       if (c.t >= totals[c.clip] + HOLD_MS) {
@@ -266,6 +267,16 @@ function ShotMap({ v, league }: { v: Visual; league: League }) {
   );
 }
 
+/** A continuous minute (ShotPoint.t, MinuteThreat.minute) as the match clock shows it: 45+2', 46', 90+3'. */
+function minuteLabel(m: number, halfTime: number | null): string {
+  if (halfTime === null || m < halfTime) {
+    const i = Math.floor(m);
+    return i < 45 ? `${i + 1}'` : `45+${i - 44}'`;
+  }
+  const j = Math.floor(m - halfTime);
+  return j < 45 ? `${46 + j}'` : `90+${j - 44}'`;
+}
+
 // -- xG race ---------------------------------------------------------------------------------------------------
 
 const XH = 150, XL = 30, XR = 40, XT = 12, XB = 20;
@@ -284,10 +295,7 @@ function XgRace({ v, league }: { v: Visual; league: League }) {
   const sx = (m: number) => XL + (m / end) * (W - XL - XR);
   const sy = (val: number) => XT + (1 - val / maxY) * (XH - XT - XB);
   const cum = (id: string, upTo: number) => shots.filter((s) => s.team_id === id && s.t <= upTo).reduce((a, s) => a + s.xg, 0);
-  const label = (m: number) => {
-    const ht = v.half_time;
-    return ht !== null && m >= ht ? `${46 + Math.floor(m - ht)}'` : `${Math.floor(m) + 1}'`;
-  };
+  const label = (m: number) => minuteLabel(m, v.half_time);
 
   function path(id: string) {
     let y = 0;
@@ -375,7 +383,7 @@ function MomentumBars({ v, league }: { v: Visual; league: League }) {
         <svg viewBox={`0 0 ${W} ${MH}`} role="img" aria-label={t("viz.momentum")}>
           {v.threat.map((m, i) => (
             <g key={m.minute}>
-              <title>{`${t("viz.minute", { m: m.minute + 1 })} · ${clubShort(league, v.home_id)} ${m.home} · ${clubShort(league, v.away_id)} ${m.away}`}</title>
+              <title>{`${minuteLabel(m.minute, v.half_time)} · ${clubShort(league, v.home_id)} ${m.home} · ${clubShort(league, v.away_id)} ${m.away}`}</title>
               <rect x={i * step} y={0} width={step} height={MH} className="viz-hit" />
               {m.home > 0 && <rect x={i * step + 1} y={mid - (m.home / max) * half} width={bw} height={(m.home / max) * half}
                                    rx={Math.min(2, bw / 2)} className="m-bar home" />}
@@ -383,6 +391,9 @@ function MomentumBars({ v, league }: { v: Visual; league: League }) {
                                    rx={Math.min(2, bw / 2)} className="m-bar away" />}
             </g>
           ))}
+          {v.half_time !== null && (
+            <line x1={v.half_time * step} x2={v.half_time * step} y1={0} y2={MH} className="m-half" />
+          )}
           <line x1={0} x2={W} y1={mid} y2={mid} className="m-base" />
         </svg>
       </div>

@@ -135,10 +135,17 @@ class AnalystService:
                     if brief.kind == "full_time":
                         brief.text += "\n\nTIMELINE OF EARLIER INSIGHTS:\n" + "\n".join(
                             f"  {i.clock} {i.kind}: {i.headline} - {i.why_it_matters}" for i in earlier)
-                    insight = await self.writer.write(brief)
+                    # The fun fact (and the storyteller's retelling of it) is found while the analysts write,
+                    # so it never delays the insight.
+                    used = {i.trivia.trivia_id for i in earlier if i.trivia}
+                    trivia = asyncio.create_task(self.lore.pick(brief, self._teams(match_id), used))
                     try:
-                        used = {i.trivia.trivia_id for i in earlier if i.trivia}
-                        insight.trivia = await self.lore.pick(insight, self._teams(match_id), used)
+                        insight = await self.writer.write(brief)
+                    except BaseException:
+                        trivia.cancel()
+                        raise
+                    try:
+                        insight.trivia = await trivia
                     except Exception:  # noqa: BLE001 - a fun fact is never worth losing the insight over
                         log.exception("%s: no trivia for %s", match_id, brief.insight_id)
                     await self.publish(insight)

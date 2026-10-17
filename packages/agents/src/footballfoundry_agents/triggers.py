@@ -2,15 +2,19 @@
 
 Plain code, not an LLM. A match has ~1,900 events; only a handful a match become agent runs. Must-show moments
 (goals, red cards, missed penalties, half-time, full-time) always fire. Minor ones (big chances, momentum swings,
-rolling summaries) are rate-limited per match so a busy spell can't flood the agents.
+rolling summaries) are rate-limited per match so a busy spell can't flood the agents. When nothing has fired for
+a while, a spotlight moment lets the analysts find a story on their own initiative (see spotlight.py).
 """
 
 from __future__ import annotations
 
+import time
 from dataclasses import dataclass, field
+from typing import Callable
 
 from footballfoundry_schema import Event, InsightKind
 
+from footballfoundry_agents.spotlight import Angle, find_angles
 from footballfoundry_agents.state import MatchState, match_seconds
 
 
@@ -25,6 +29,11 @@ class TriggerConfig:
     minor_cap: int = 3  # minor moments allowed per `minor_window_min`
     minor_window_min: int = 10
     quiet_after_major_s: int = 60  # no minor moment this soon after a must-show one
+    # Spotlight: no insight for this many real seconds AND this many match minutes -> the analysts find a story.
+    # Real time is what the viewer feels (10 s is 5 match minutes at 30x); the match-time floor stops a live (1x)
+    # stream from asking for one every 10 seconds.
+    idle_after_s: float = 10.0
+    idle_min_gap_min: int = 3
 
 
 @dataclass
@@ -36,6 +45,7 @@ class Moment:
     team_id: str | None = None
     player_ids: list[str] = field(default_factory=list)
     priority: int = 2  # 1 must show, 2 notable, 3 filler
+    angle: Angle | None = None  # spotlight: the story suggested to the analysts
 
     @property
     def insight_id(self) -> str:
@@ -44,8 +54,9 @@ class Moment:
 
 
 class TriggerEngine:
-    def __init__(self, config: TriggerConfig | None = None) -> None:
+    def __init__(self, config: TriggerConfig | None = None, clock: Callable[[], float] = time.time) -> None:
         self.cfg = config or TriggerConfig()
+        self.clock = clock  # wall clock (seconds), for the spotlight's idle time; injectable for tests
 
     def check(self, state: MatchState, e: Event) -> list[Moment]:
         """Call after `state.apply(e)` returned True."""
@@ -59,7 +70,33 @@ class TriggerEngine:
             minor = self._minor(state, e)
             if minor and self._admit_minor(state, e):
                 moments.append(minor)
+        if not moments:
+            spotlight = self._spotlight(state, e)
+            if spotlight:
+                moments.append(spotlight)
+        if moments or e.type == "period_start":  # the idle clock restarts at kick-off and after each insight
+            t["last_moment_wall"] = self.clock()
+            t["last_moment_s"] = match_seconds(e)
         return moments
+
+    # -- initiative ------------------------------------------------------------------------------------------
+
+    def _spotlight(self, state: MatchState, e: Event) -> Moment | None:
+        """The match has gone quiet: suggest a story the analysts haven't told yet."""
+        t = state.triggers
+        if "last_moment_wall" not in t or e.type not in ("pass", "carry") or "+" in e.clock:
+            return None
+        if self.clock() - t["last_moment_wall"] < self.cfg.idle_after_s:
+            return None
+        if match_seconds(e) - t.get("last_moment_s", 0) < self.cfg.idle_min_gap_min * 60:
+            return None
+        angles = find_angles(state, set(t.get("angles_used", [])))
+        if not angles:
+            return None
+        angle = angles[0]
+        t["angles_used"] = t.get("angles_used", []) + [angle.angle_id]
+        return Moment(state.match_id, "spotlight", e, [], angle.team_id,
+                      [angle.player_id] if angle.player_id else [], 3, angle=angle)
 
     # -- must-show -------------------------------------------------------------------------------------------
 
