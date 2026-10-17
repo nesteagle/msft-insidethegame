@@ -20,6 +20,7 @@ from footballfoundry_agents.archiving import ArchiveWriter
 from footballfoundry_agents.briefs import Brief, build
 from footballfoundry_agents.guard import StreamGuard
 from footballfoundry_agents.lore import Lore
+from footballfoundry_agents.prematch import covered
 from footballfoundry_agents.reference import Reference
 from footballfoundry_agents.relay import EventLog
 from footballfoundry_agents.state import MatchState
@@ -70,6 +71,7 @@ class AnalystService:
         self.translator = translator
         # "Did you know?" facts for casual fans, retold by the storyteller agent when Foundry is configured.
         self.lore = lore or Lore(ref)
+        self.season = None  # the season book (agents/season.py), for the kick-off preview; set by the CLI
         self._loading: dict[str, asyncio.Lock] = {}
         self._queues: dict[str, asyncio.Queue[Brief]] = {}
         self._workers: dict[str, asyncio.Task] = {}
@@ -97,7 +99,7 @@ class AnalystService:
             self.archive.add(state, e)
         moments = self.triggers.check(state, e)
         for m in moments:
-            self._queue(e.match_id).put_nowait(build(state, m, self.ref))
+            self._queue(e.match_id).put_nowait(build(state, m, self.ref, lore=self.lore, season=self.season))
         if moments or e.seq % self.snapshot_every == 0 or e.type == "period_end":
             await self.stores.state.save(state.snapshot())
 
@@ -138,6 +140,7 @@ class AnalystService:
                     # The fun fact (and the storyteller's retelling of it) is found while the analysts write,
                     # so it never delays the insight.
                     used = {i.trivia.trivia_id for i in earlier if i.trivia}
+                    used |= covered(brief, self.lore)  # what the insight already tells isn't a "did you know?"
                     trivia = asyncio.create_task(self.lore.pick(brief, self._teams(match_id), used))
                     try:
                         insight = await self.writer.write(brief)

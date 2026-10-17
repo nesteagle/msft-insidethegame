@@ -30,7 +30,7 @@ from footballfoundry_agents.reference import Reference
 log = logging.getLogger(__name__)
 
 LANGUAGES = ("es", "fr", "pt", "de")  # the web app's languages besides English
-PLAYER_MOMENTS = ("goal", "penalty", "big_chance", "red_card", "tactical_change", "spotlight")
+PLAYER_MOMENTS = ("goal", "penalty", "big_chance", "red_card", "tactical_change", "spotlight", "players_to_watch")
 
 POSITION = {"GK": "goalkeeper", "RB": "right-back", "CB": "centre-back", "LB": "left-back",
             "DM": "defensive midfielder", "CM": "central midfielder", "AM": "attacking midfielder",
@@ -184,11 +184,23 @@ class Lore:
     # -- picking -------------------------------------------------------------------------------------------------
 
     def subjects(self, insight: Moment, clubs: tuple[str | None, str | None]) -> list[str]:
-        """Who the fun fact can be about, best first: the player in the moment, then their club, then the other."""
+        """Who the fun fact can be about, best first: the player in the moment, then their club, then the other.
+        A club has only a few facts, which a match's summaries and momentum swings use up by full time, so after
+        the clubs come the two squads' players, the most remarkable first."""
         player = insight.player_ids[:1] if insight.kind in PLAYER_MOMENTS else []
         team = [insight.team_id] if insight.team_id else []
         first = team + player if insight.kind == "tactical_change" else player + team  # a change is the manager's
-        return [s for s in dict.fromkeys(first + [c for c in clubs if c]) if s in self.facts]
+        teams = [c for c in clubs if c]
+        return [s for s in dict.fromkeys(first + teams + self._squads(teams)) if s in self.facts]
+
+    def _squads(self, club_ids: list[str]) -> list[str]:
+        """The clubs' players, those with a league record first, then a squad record, and so on."""
+        league = self.ref.league
+        if league is None:
+            return []
+        rank = {key: i for i, key in enumerate(TEXT)}  # TEXT lists the facts from most to least remarkable
+        players = [p.player_id for p in league.players if p.club_id in club_ids and self.facts.get(p.player_id)]
+        return sorted(players, key=lambda pid: rank[self.facts[pid][0].key])
 
     async def pick(self, insight: Moment, clubs: tuple[str | None, str | None], used: set[str]) -> Trivia | None:
         """A fact nobody has seen this match, told by the storyteller when there is one."""

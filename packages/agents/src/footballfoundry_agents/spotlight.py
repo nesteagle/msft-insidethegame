@@ -12,7 +12,7 @@ from __future__ import annotations
 from dataclasses import asdict, dataclass, field
 from typing import Any
 
-from footballfoundry_agents.reference import Reference
+from footballfoundry_agents.reference import Reference, possessive
 from footballfoundry_agents.state import MatchState
 
 
@@ -121,7 +121,7 @@ def write_up(angle: dict[str, Any], ref: Reference) -> tuple[str, str, str, dict
                 {"Shots": str(n["shots"]), "On target": "0"})
     if key == "corner_pressure":
         return (f"Corner after corner for {team}",
-                f"{team} have won {n['corners']} corners to {n['opp_corners']}: they're camped in {opp}'s half.",
+                f"{team} have won {n['corners']} corners to {n['opp_corners']}: they're camped in {possessive(opp)} half.",
                 "Pressure like this often brings a set-piece goal.",
                 {"Corners": f"{n['corners']} - {n['opp_corners']}"})
     if key == "busy_keeper":

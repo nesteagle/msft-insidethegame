@@ -11,6 +11,7 @@ from typing import Any
 
 from footballfoundry_schema import Event, InsightKind, Visual
 
+from footballfoundry_agents.prematch import describe_context, players_to_watch, season_context
 from footballfoundry_agents.reference import Reference
 from footballfoundry_agents.spotlight import find_angles, write_up
 from footballfoundry_agents.state import MatchState
@@ -129,7 +130,8 @@ def _fmt(v: float, key: str) -> str:
     return f"{v:.0f}"
 
 
-def build(state: MatchState, moment: Moment, ref: Reference) -> Brief:
+def build(state: MatchState, moment: Moment, ref: Reference, *, lore: Any = None, season: Any = None) -> Brief:
+    """`lore` and `season` (the season book) feed the opening minutes: the kick-off preview and players to watch."""
     h, a = state.home_id, state.away_id
     hs, as_ = state.team_stats(h), state.team_stats(a)
     poss = state.possession()
@@ -162,6 +164,8 @@ def build(state: MatchState, moment: Moment, ref: Reference) -> Brief:
     if moment.evidence:
         lines += ["", "EVIDENCE (the move or incident, oldest first):"]
         lines += ["  " + describe(x, ref) for x in moment.evidence]
+    if moment.kind in ("kick_off", "players_to_watch"):
+        facts["season"] = season_context(season, state.match_id, h, a)
     if moment.kind == "kick_off":
         facts["preview"] = preview(state, ref)
         p = facts["preview"]
@@ -172,6 +176,17 @@ def build(state: MatchState, moment: Moment, ref: Reference) -> Brief:
                   f"{p['home']['manager']}, style: {p['home']['style']}",
                   f"  {p['away']['name']} (away): {p['away']['formation']}, manager {p['away']['manager']}, "
                   f"style: {p['away']['style']}"]
+        if facts["season"]:
+            lines.append("  Season so far (matchdays before this one): " + describe_context(facts["season"], ref, h, a))
+    player_ids = list(moment.player_ids)
+    if moment.kind == "players_to_watch":
+        facts["watch"] = players_to_watch(state, lore, facts["season"], ref)
+        player_ids = [w["player_id"] for w in facts["watch"]]
+        lines += ["", "PLAYERS TO WATCH: introduce one player from each side the viewer should watch today, and why "
+                  "(a scoring run, a standout ability, their role in how the team plays). Suggested, from the data: "
+                  + " ".join(w["reason"] for w in facts["watch"]),
+                  "Or pick others from the starting line-ups with the tools (season_query player_season for their "
+                  "season so far). Don't repeat the kick-off preview."]
     if moment.kind == "spotlight" and moment.angle is not None:
         facts["angle"] = moment.angle.as_fact()
         others = find_angles(state, set(state.triggers.get("angles_used", [])))
@@ -199,6 +214,6 @@ def build(state: MatchState, moment: Moment, ref: Reference) -> Brief:
     return Brief(
         insight_id=moment.insight_id, match_id=state.match_id, kind=moment.kind, priority=moment.priority,
         seq=e.seq, period=e.period, minute=e.minute, clock=e.clock, team_id=moment.team_id,
-        player_ids=list(moment.player_ids), event_ids=[x.event_id for x in moment.evidence] or [e.event_id],
+        player_ids=player_ids, event_ids=[x.event_id for x in moment.evidence] or [e.event_id],
         facts=facts, text="\n".join(lines), visuals=visuals, run_id=state.run_id,
     )

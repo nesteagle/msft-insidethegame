@@ -180,6 +180,7 @@ async def serve(args: argparse.Namespace) -> None:
                                       else "none" if sys.stdin.isatty() and not args.follow else "stdin")
         season = Season(path=args.season_book)
         season.book()  # load it now (or start building it in the background) rather than on first use
+        service.season = season  # the season so far, for the kick-off preview and players to watch
         control = _control(args, service, source_spec, eventhub_configured, season)
         app = create_app(service, cors_origins=args.cors_origin, chat=chat_endpoint(service, client, mcp),
                          web_dir=web_dir, control=control, season=season)

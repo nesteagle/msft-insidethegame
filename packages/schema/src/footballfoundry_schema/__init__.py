@@ -307,6 +307,7 @@ InsightKind = Literal[
     "goal", "red_card", "penalty", "big_chance", "momentum", "summary", "half_time", "full_time", "tactical_change",
     "spotlight",  # a quiet spell: the analysts find a story in the data on their own initiative
     "kick_off",  # the preview at kick-off: the teams, their shapes and styles, the story coming in
+    "players_to_watch",  # ~2' in: one starter from each side worth watching, and why
 ]
 Audience = Literal["broadcast", "analyst", "casual", "player"]
 

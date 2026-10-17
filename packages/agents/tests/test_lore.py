@@ -113,3 +113,12 @@ def test_published_insights_carry_trivia_without_repeats(match, ref):
     assert len(ids) == len(set(ids))
     goal = next(i for i in items if i.kind == "goal")
     assert goal.trivia.subject_id in goal.player_ids[:1] + [goal.team_id]
+
+
+def test_full_time_still_gets_a_fact_when_the_clubs_are_used_up(league, lore):
+    home, away = league.clubs[0].club_id, league.clubs[1].club_id
+    used = {f.trivia_id for c in (home, away) for f in lore.facts[c]}  # every club fact already shown
+    t = asyncio.run(lore.pick(insight("full_time"), (home, away), used))
+    squad = {p.player_id for p in league.players if p.club_id in (home, away)}
+    assert t is not None and t.subject_id in squad
+    assert t.key != "profile"  # the most remarkable players come first

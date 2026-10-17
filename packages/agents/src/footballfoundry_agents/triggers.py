@@ -66,6 +66,8 @@ class TriggerEngine:
         if major:
             t["last_major_s"] = match_seconds(e)
             moments.append(major)
+        elif watch := self._players_to_watch(state, e):
+            moments.append(watch)
         else:
             minor = self._minor(state, e)
             if minor and self._admit_minor(state, e):
@@ -78,6 +80,16 @@ class TriggerEngine:
             t["last_moment_wall"] = self.clock()
             t["last_moment_s"] = match_seconds(e)
         return moments
+
+    # -- the opening minutes ---------------------------------------------------------------------------------
+
+    def _players_to_watch(self, state: MatchState, e: Event) -> Moment | None:
+        """Once, ~2 minutes in: introduce a player from each side (picked when the brief is built)."""
+        t = state.triggers
+        if t.get("watch_done") or e.period != 1 or e.minute < 2 or e.type not in ("pass", "carry"):
+            return None
+        t["watch_done"] = True
+        return Moment(state.match_id, "players_to_watch", e, [], None, [], 2)
 
     # -- initiative ------------------------------------------------------------------------------------------
 

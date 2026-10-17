@@ -67,7 +67,7 @@ flowchart TB
     local --> state
     ehA --> state["MatchState (state.py)<br/>score, stats, threat per minute,<br/>last 200 events"]
 
-    state --> trig["TriggerEngine (triggers.py)<br/>goal, red card, penalty, big chance,<br/>momentum swing, summary, HT, FT,<br/>spotlight when it goes quiet"]
+    state --> trig["TriggerEngine (triggers.py)<br/>kick-off preview, players to watch,<br/>goal, red card, penalty, big chance,<br/>momentum swing, summary, HT, FT,<br/>spotlight when it goes quiet"]
     trig --> brief["Brief (briefs.py)<br/>facts frozen at that moment"]
     brief --> q["Per-match queue<br/>(drops stale filler if behind)"]
     q --> writer{"Writer"}

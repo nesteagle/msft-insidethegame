@@ -7,6 +7,11 @@ from pathlib import Path
 from footballfoundry_schema import Club, League, Player
 
 
+def possessive(name: str) -> str:
+    """Halbury Rangers' / Wyndford Town's."""
+    return f"{name}'" if name.endswith("s") else f"{name}'s"
+
+
 class Reference:
     """Lookup over a League. Works without one too, falling back to raw ids."""
 

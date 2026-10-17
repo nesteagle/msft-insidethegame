@@ -137,7 +137,8 @@ Open `AGENTS_URL` in a browser.
 | --- | --- |
 | Open `/control`, enter the key | The control room: start a stream, watch its progress, stop it |
 | Open the page | M0015 marked "● live"; players moving; score updating |
-| Kick-off | A **Kick-off** card previewing the match: both teams' shapes, managers and styles |
+| Kick-off | A **Kick-off** card previewing the match: both teams' shapes, managers and styles, and (from matchday 2) their league position, points and form |
+| ~2 minutes in | A **Players to watch** card: one starter from each side and why (top scorer this season, or a standout record) |
 | Watch a minute | Insight cards for goals, chances and summaries; agent-written text, many with the **fact-checked** tick |
 | A goal goes in | A goal banner, then a lower third over the pitch; the card shows **The move**, an animated replay of the goal |
 | Half-time, then full-time | The xG race and a head-to-head; at full time a **Goals reel** (every goal in turn), the xG race and a shot map |

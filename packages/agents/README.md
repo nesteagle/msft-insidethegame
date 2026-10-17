@@ -175,6 +175,7 @@ Event Hubs ─► consumer ─► MatchState ─► TriggerEngine ─► Brief �
 | [`visuals.py`](src/footballfoundry_agents/visuals.py) | Charts and move replays for insights and chat answers, built from the match state |
 | [`lore.py`](src/footballfoundry_agents/lore.py) | "Did you know?" facts from the league data, and the storyteller agent |
 | [`spotlight.py`](src/footballfoundry_agents/spotlight.py) | The stories a quiet spell can be spent on, and their offline write-up |
+| [`prematch.py`](src/footballfoundry_agents/prematch.py) | The opening minutes: the season so far for the kick-off preview, and the players to watch |
 | [`service.py`](src/footballfoundry_agents/service.py) | Wires it together; one writer per match keeps insights in order |
 | [`stores.py`](src/footballfoundry_agents/stores.py) | Insights, state snapshots and profiles in memory, files or Cosmos DB |
 | [`guard.py`](src/footballfoundry_agents/guard.py) | First stream wins: ignores a second stream (another `stream_id`) of a match that's still live |
@@ -184,8 +185,12 @@ Event Hubs ─► consumer ─► MatchState ─► TriggerEngine ─► Brief �
 | [`chat.py`](src/footballfoundry_agents/chat.py) | The match assistant: per-request agent, bound tools, AG-UI endpoint |
 | [`api.py`](src/footballfoundry_agents/api.py) | The HTTP API above, and the web app's static files |
 
-**Triggers.** A kick-off preview (the two teams' shapes, managers and styles, and with Foundry their form and
-head-to-head), so viewers get something from the first whistle. Goals, red cards, missed penalties, half-time and
+**Triggers.** The opening minutes get two insights of their own, so viewers have something from the first
+whistle ([prematch.py](src/footballfoundry_agents/prematch.py)): a **kick-off preview** (the two teams' shapes,
+managers and styles, plus the season so far from the season book: league position, points, form and an earlier
+meeting, or "the opening day of the season"), and **players to watch** about 2 minutes in (one starter from each
+side: the club's top scorer this season, else the starter with the most remarkable record). Season facts come only
+from matchdays before this match's, so nothing about this matchday is given away; a one-off match gets none. Goals, red cards, missed penalties, half-time and
 full-time always fire. Big chances (xG ≥ 0.3),
 momentum swings (one side with ≥ 72% of the attacking threat over 10 minutes) and summaries every 15 minutes are
 capped at 3 per 10 minutes, and held back for a minute after a must-show moment. If the agents fall behind,

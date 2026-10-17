@@ -11,6 +11,7 @@ from datetime import datetime, timezone
 from footballfoundry_schema import Insight, InsightVariant
 
 from footballfoundry_agents.briefs import Brief
+from footballfoundry_agents.prematch import describe_context
 from footballfoundry_agents.reference import Reference
 from footballfoundry_agents.spotlight import write_up
 from footballfoundry_agents.visuals import choose
@@ -106,9 +107,17 @@ def template_insight(brief: Brief, ref: Reference) -> Insight:
         headline = f"Kick-off: {h['name']} v {a['name']}"
         text = (f"{h['name']} ({h['formation']}, managed by {h['manager']}) host {a['name']} ({a['formation']}, "
                 f"{a['manager']}) at {p['stadium']}.")
+        season = describe_context(f.get("season"), ref, h["club_id"], a["club_id"])
+        text = f"{text} {season}" if season else text
         why = f"{h['name']} {h['style']}, while {a['name']} {a['style']}: watch how the two styles meet."
         return make_insight(brief, headline=headline, text=text, why=why,
                             stats={"Formations": f"{h['formation']} v {a['formation']}"}, verified=False)
+    elif brief.kind == "players_to_watch" and f.get("watch"):
+        names = [ref.player_short(w["player_id"]) for w in f["watch"]]
+        headline = "Players to watch: " + " and ".join(names)
+        text = " ".join(w["reason"] for w in f["watch"])
+        why = "Keep an eye on them: games like this are often decided by players like these."
+        return make_insight(brief, headline=headline, text=text, why=why, stats={}, verified=False)
     elif brief.kind == "spotlight" and f.get("angle"):
         headline, text, why, numbers = write_up(f["angle"], ref)
         return make_insight(brief, headline=headline, text=text, why=why, stats=numbers, verified=False)
