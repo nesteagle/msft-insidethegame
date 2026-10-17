@@ -27,6 +27,11 @@ param translatorLlmDeployment string = ''
 @description('Key for the control room (/control), where testers start and stop streams. Empty: the control room is off.')
 param controlKey string = ''
 
+@description('Optional custom domain bound to the public agents app.')
+param agentsCustomDomain string = ''
+@description('Managed certificate resource ID for agentsCustomDomain.')
+param agentsCustomDomainCertificateId string = ''
+
 @description('Fabric Eventhouse query URI. Empty: the MCP server uses the season data baked into its image.')
 param kustoUri string = ''
 param kustoDatabase string = 'footballfoundry'
@@ -134,6 +139,8 @@ module apps 'modules/apps.bicep' = {
     translatorEndpoint: foundry.outputs.translatorEndpoint
     translatorLlmDeployment: translatorLlmDeployment
     controlKey: controlKey
+    agentsCustomDomain: agentsCustomDomain
+    agentsCustomDomainCertificateId: agentsCustomDomainCertificateId
     kustoUri: kustoUri
     kustoDatabase: kustoDatabase
     agentsImage: agentsImage

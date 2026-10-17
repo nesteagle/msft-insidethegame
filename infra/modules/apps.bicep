@@ -20,6 +20,8 @@ param translatorEndpoint string
 param translatorLlmDeployment string
 @secure()
 param controlKey string
+param agentsCustomDomain string
+param agentsCustomDomainCertificateId string
 param kustoUri string
 param kustoDatabase string
 param agentsImage string
@@ -94,7 +96,18 @@ resource agents 'Microsoft.App/containerApps@2025-01-01' = {
   properties: {
     managedEnvironmentId: env.id
     configuration: {
-      ingress: { external: true, targetPort: 8100, transport: 'auto' }
+      activeRevisionsMode: 'Single'
+      ingress: {
+        external: true
+        targetPort: 8100
+        transport: 'auto'
+        stickySessions: { affinity: 'sticky' }
+        customDomains: empty(agentsCustomDomain) ? [] : [{
+          name: agentsCustomDomain
+          bindingType: 'SniEnabled'
+          certificateId: agentsCustomDomainCertificateId
+        }]
+      }
       registries: registries
       secrets: concat([{ name: 'appinsights', value: appInsightsConnectionString }],
         empty(controlKey) ? [] : [{ name: 'control-key', value: controlKey }])

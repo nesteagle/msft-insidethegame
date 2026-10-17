@@ -223,3 +223,5 @@ __marimo__/
 
 # Azure Developer CLI environments (contain resource names and settings)
 .azure/
+
+.playwright-mcp/

@@ -11,6 +11,8 @@
     "kustoUri": { "value": "${KUSTO_URI=}" },
     "translatorLlmDeployment": { "value": "${TRANSLATOR_LLM_DEPLOYMENT=}" },
     "controlKey": { "value": "${CONTROL_KEY=}" },
+    "agentsCustomDomain": { "value": "${AGENTS_CUSTOM_DOMAIN=}" },
+    "agentsCustomDomainCertificateId": { "value": "${AGENTS_CUSTOM_DOMAIN_CERTIFICATE_ID=}" },
     "agentsImage": { "value": "${SERVICE_AGENTS_IMAGE_NAME=}" },
     "mcpImage": { "value": "${SERVICE_MCP_IMAGE_NAME=}" }
   }

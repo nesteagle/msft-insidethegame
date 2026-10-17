@@ -41,7 +41,7 @@ Open `AGENTS_URL` in a browser for the web app.
 | Cosmos DB for NoSQL (serverless) | Database `footballfoundry`, containers below; key auth disabled |
 | Microsoft Foundry | AI Services account, project `footballfoundry`, one model deployment; its endpoint also serves Azure Translator |
 | Container registry | Images pulled with the managed identity; no admin user |
-| Container Apps | `agents` (public: the web app, its API and the chat; scales 1-4 on Event Hubs backlog), `mcp` (internal only) |
+| Container Apps | `agents` (public: the web app, its API and the chat; scales 1-4 on Event Hubs backlog, with sticky sessions for the in-memory control-room job list), `mcp` (internal only) |
 | Log Analytics + Application Insights | Container logs, and the OpenTelemetry traces Agent Framework emits per agent and tool call |
 | User-assigned managed identity | Every app signs in with it; role assignments below |
 
@@ -85,10 +85,22 @@ azd provision
 ## Control room
 
 The web app's `/control` page lets testers start and stop streams into Event Hubs. It's off in Azure until you set
-a key, which the page then asks for. The key is stored as a Container Apps secret:
+a key, which the page then asks for. The agents app uses sticky sessions so the page's requests stay on the replica
+that owns its in-memory stream jobs. The key is stored as a Container Apps secret:
 
 ```bash
 azd env set CONTROL_KEY <a long random string>
+azd provision
+```
+
+To keep a manually configured custom domain and its managed certificate across future `azd provision` runs, set
+the domain and certificate resource ID in the same azd environment:
+
+```powershell
+$certificateId = az containerapp show --name <agents-app> --resource-group <resource-group> `
+  --query "properties.configuration.ingress.customDomains[?name=='<domain>'].certificateId | [0]" -o tsv
+azd env set AGENTS_CUSTOM_DOMAIN <domain>
+azd env set AGENTS_CUSTOM_DOMAIN_CERTIFICATE_ID $certificateId
 azd provision
 ```
 
