@@ -19,6 +19,7 @@ from footballfoundry_schema import Event, Insight, InsightVariant
 from footballfoundry_agents.archiving import ArchiveWriter
 from footballfoundry_agents.briefs import Brief, build
 from footballfoundry_agents.guard import StreamGuard
+from footballfoundry_agents.lore import Lore
 from footballfoundry_agents.reference import Reference
 from footballfoundry_agents.relay import EventLog
 from footballfoundry_agents.state import MatchState
@@ -52,7 +53,7 @@ class TemplateWriter:
 
 class AnalystService:
     def __init__(self, stores: Stores, writer: Writer, ref: Reference, *, triggers: TriggerEngine | None = None,
-                 snapshot_every: int = 100, archive=None, translator=None) -> None:
+                 snapshot_every: int = 100, archive=None, translator=None, lore: Lore | None = None) -> None:
         self.stores = stores
         self.writer = writer
         self.ref = ref
@@ -67,6 +68,8 @@ class AnalystService:
         self.archive = ArchiveWriter(archive) if archive is not None else None
         # Azure Translator: English variant -> viewer's language. Without it the personaliser translates.
         self.translator = translator
+        # "Did you know?" facts for casual fans, retold by the storyteller agent when Foundry is configured.
+        self.lore = lore or Lore(ref)
         self._loading: dict[str, asyncio.Lock] = {}
         self._queues: dict[str, asyncio.Queue[Brief]] = {}
         self._workers: dict[str, asyncio.Task] = {}
@@ -132,7 +135,13 @@ class AnalystService:
                     if brief.kind == "full_time":
                         brief.text += "\n\nTIMELINE OF EARLIER INSIGHTS:\n" + "\n".join(
                             f"  {i.clock} {i.kind}: {i.headline} - {i.why_it_matters}" for i in earlier)
-                    await self.publish(await self.writer.write(brief))
+                    insight = await self.writer.write(brief)
+                    try:
+                        used = {i.trivia.trivia_id for i in earlier if i.trivia}
+                        insight.trivia = await self.lore.pick(insight, self._teams(match_id), used)
+                    except Exception:  # noqa: BLE001 - a fun fact is never worth losing the insight over
+                        log.exception("%s: no trivia for %s", match_id, brief.insight_id)
+                    await self.publish(insight)
                 except Exception:  # noqa: BLE001 - keep the worker alive for the rest of the match
                     log.exception("%s: could not write %s", match_id, brief.insight_id)
             for _ in batch:

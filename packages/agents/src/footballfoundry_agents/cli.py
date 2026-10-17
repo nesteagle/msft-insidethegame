@@ -141,6 +141,7 @@ async def serve(args: argparse.Namespace) -> None:
 
     async with contextlib.AsyncExitStack() as stack:
         client = mcp = None
+        lore = None  # facts from the league data; the storyteller agent retells them when Foundry is on
         if args.offline or not _env("FOUNDRY_PROJECT_ENDPOINT"):
             if not args.offline:
                 log.warning("FOUNDRY_PROJECT_ENDPOINT not set: running offline with template insights")
@@ -159,6 +160,9 @@ async def serve(args: argparse.Namespace) -> None:
                     name="footballfoundry", url=args.mcp_url, approval_mode="never_require",
                     description="Match events, live stats, player and club data, season queries"))
             writer = AgentWriter(client, ref, tools=mcp)
+            from footballfoundry_agents.lore import Lore, Storyteller
+
+            lore = Lore(ref, Storyteller(client))
             log.info("agents: Foundry model %s, MCP %s", _env("FOUNDRY_MODEL"), args.mcp_url or "off")
 
         translator = None
@@ -169,7 +173,7 @@ async def serve(args: argparse.Namespace) -> None:
             stack.push_async_callback(translator.close)
             log.info("translation: Azure Translator (%s)", "NMT + LLM " + args.translator_llm
                      if args.translator_llm else "NMT")
-        service = AnalystService(stores, writer, ref, archive=archive, translator=translator)
+        service = AnalystService(stores, writer, ref, archive=archive, translator=translator, lore=lore)
         web_dir = args.web_dir if args.web_dir and Path(args.web_dir, "index.html").exists() else None
         eventhub_configured = bool(_env("EVENTHUB_NAMESPACE") or _env("EVENTHUB_CONNECTION_STRING"))
         source_spec = args.source or ("eventhub" if eventhub_configured

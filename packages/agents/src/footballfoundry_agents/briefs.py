@@ -9,11 +9,12 @@ from __future__ import annotations
 from dataclasses import dataclass, field
 from typing import Any
 
-from footballfoundry_schema import Event, InsightKind
+from footballfoundry_schema import Event, InsightKind, Visual
 
 from footballfoundry_agents.reference import Reference
 from footballfoundry_agents.state import MatchState
 from footballfoundry_agents.triggers import Moment
+from footballfoundry_agents.visuals import describe_offer, offered
 
 KEY_STATS = ("goals", "xg", "shots", "shots_on_target", "passes", "pass_accuracy", "corners", "fouls",
              "yellow_cards", "red_cards", "tackles_won", "interceptions")
@@ -35,6 +36,7 @@ class Brief:
     facts: dict[str, Any]
     text: str  # the fact sheet the agents read
     previous: list[str] = field(default_factory=list)  # earlier headlines, to avoid repeating them
+    visuals: dict[str, Visual] = field(default_factory=dict)  # what this moment can show, built at trigger time
 
 
 def describe(e: Event, ref: Reference) -> str:
@@ -138,11 +140,15 @@ def build(state: MatchState, moment: Moment, ref: Reference) -> Brief:
     if physical:
         lines += ["", "PHYSICAL (modelled from tracking-style workload):"] + ["  " + p for p in physical]
         facts["physical"] = physical
+    visuals = offered(state, moment.kind, ref, anchor=e, evidence=moment.evidence)
+    if visuals:
+        lines += ["", "VISUALS YOU CAN SHOW (drawn from the data; pick 0-2, each with a one-sentence caption):",
+                  describe_offer(visuals)]
     lines += ["", "Coordinates: x 0-100 from the acting team's own goal to the opponent's; the box starts at x=83."]
 
     return Brief(
         insight_id=moment.insight_id, match_id=state.match_id, kind=moment.kind, priority=moment.priority,
         seq=e.seq, period=e.period, minute=e.minute, clock=e.clock, team_id=moment.team_id,
         player_ids=list(moment.player_ids), event_ids=[x.event_id for x in moment.evidence] or [e.event_id],
-        facts=facts, text="\n".join(lines),
+        facts=facts, text="\n".join(lines), visuals=visuals,
     )

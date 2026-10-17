@@ -262,9 +262,75 @@ code { font-family: ui-monospace, Consolas, monospace; font-size: 12px; backgrou
   .lower-third { left: 10px; right: 10px; bottom: 34px; }
   .conn { margin-left: 0; }
 }
+/* Visuals: charts and move replays the agents attach to insights and chat answers */
+.visuals { display: grid; gap: 8px; margin-top: 10px; }
+.viz { margin: 0; border: 1px solid var(--border); border-radius: 8px; padding: 8px 10px; background: var(--surface); min-width: 0; }
+.viz figcaption { display: grid; gap: 2px; margin-bottom: 6px; }
+.viz-title { font-size: 12px; font-weight: 600; }
+.viz-caption { font-size: 12px; color: var(--ink-2); }
+.viz-legend { flex-wrap: wrap; gap: 4px 14px; margin-bottom: 4px; }
+.viz-note { font-size: 11px; color: var(--muted); margin-top: 2px; }
+.viz-pitch svg { display: block; width: 100%; height: auto; border-radius: 6px; }
+.viz-pitch-bar { display: flex; align-items: center; justify-content: space-between; gap: 8px; margin-top: 4px; font-size: 12px; min-height: 24px; }
+.viz-buttons { display: flex; }
+.viz-outcome { margin-left: 8px; padding: 1px 6px; border-radius: 4px; background: var(--wash); }
+.viz-outcome.goal { background: var(--ink); color: var(--surface); font-weight: 600; }
+.mv-trail { fill: none; stroke-width: 0.6; stroke-linecap: round; }
+.mv.home .mv-trail { stroke: var(--home-pitch); }
+.mv.away .mv-trail { stroke: var(--away-pitch); }
+.mv-carry { stroke-dasharray: 1.2 1; }
+.mv-shot { stroke-width: 0.9; }
+.mv-player { stroke: #ffffff; stroke-width: 0.3; }
+.mv.home .mv-player { fill: var(--home-pitch); }
+.mv.away .mv-player { fill: var(--away-pitch); }
+.mv-name { font-size: 3.2px; font-weight: 600; fill: #ffffff; paint-order: stroke; stroke: rgba(0, 0, 0, 0.65); stroke-width: 0.7px; }
+.mv-ball { fill: #ffffff; stroke: #0b0b0b; stroke-width: 0.25; }
+.mv-goal-flash { fill: var(--focus); animation: goalflash 0.5s ease-in-out infinite alternate; }
+@keyframes goalflash { to { opacity: 0.25; } }
+.shot { stroke-width: 0.35; }
+.shot.home { fill: color-mix(in srgb, var(--home-pitch) 30%, transparent); stroke: var(--home-pitch); }
+.shot.away { fill: color-mix(in srgb, var(--away-pitch) 30%, transparent); stroke: var(--away-pitch); }
+.shot.goal.home { fill: var(--home-pitch); stroke: #ffffff; }
+.shot.goal.away { fill: var(--away-pitch); stroke: #ffffff; }
+.viz-chart { position: relative; }
+.viz-chart svg { display: block; width: 100%; height: auto; overflow: visible; }
+.viz-grid { stroke: var(--grid); stroke-width: 1; }
+.viz-tick { font-size: 10px; fill: var(--muted); }
+.viz-end { font-size: 11px; font-weight: 600; fill: var(--ink); font-variant-numeric: tabular-nums; }
+.viz-cross { stroke: var(--axis); stroke-width: 1; }
+.viz-hit { fill: transparent; }
+.viz-hit:hover { fill: var(--wash); }
+.xr-line { fill: none; stroke-width: 2; stroke-linejoin: round; stroke-linecap: round; }
+.xr-line.home { stroke: var(--home); }
+.xr-line.away { stroke: var(--away); }
+.xr-goal { stroke: var(--surface); stroke-width: 2; }
+.xr-goal.home { fill: var(--home); }
+.xr-goal.away { fill: var(--away); }
+.cmp { width: 100%; border-collapse: collapse; font-size: 12px; }
+.cmp td { padding: 2px 0; vertical-align: bottom; }
+.cmp-v { width: 44px; font-weight: 600; font-variant-numeric: tabular-nums; }
+.cmp-v:last-child { text-align: right; }
+.cmp-label { text-align: center; color: var(--ink-2); font-size: 11px; }
+.cmp-track { display: flex; gap: 2px; padding: 0 6px 3px; }
+.cmp-half { flex: 1; display: flex; height: 8px; }
+.cmp-half.home { justify-content: flex-end; }
+.cmp-half i { display: block; height: 8px; }
+.cmp-half i.home { background: var(--home); border-radius: 4px 0 0 4px; }
+.cmp-half i.away { background: var(--away); border-radius: 0 4px 4px 0; }
+.msg.assistant .visuals { margin-top: 0; }
+
+/* "Did you know?" for casual fans */
+.trivia { display: flex; gap: 8px; margin-top: 10px; padding: 8px 10px; border-radius: 8px; background: var(--wash);
+          border-left: 3px solid var(--focus); }
+.trivia-icon { flex: none; font-size: 18px; color: var(--ink-2); margin-top: 1px; }
+.trivia-title { font-size: 12px; }
+.trivia p { margin: 2px 0 0; font-size: 13px; }
+.trivia-by { display: block; margin-top: 4px; font-size: 11px; color: var(--muted); }
+
 @media (prefers-reduced-motion: reduce) {
   .trail, .possession div { transition: none; }
-  .banner, .score[data-flash="true"], .conn.live .conn-dot, .lower-third, .insight, .player.focus .focus-ring { animation: none; }
+  .banner, .score[data-flash="true"], .conn.live .conn-dot, .lower-third, .insight, .player.focus .focus-ring,
+  .mv-goal-flash { animation: none; }
 }
 
 /* control room */

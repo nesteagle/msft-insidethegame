@@ -5,6 +5,8 @@ import { useTranslation } from "react-i18next";
 import { viewerQuery, type Insight, type League } from "../api";
 import { usePlayback, useViewer } from "../store";
 import type { PageControls } from "./MatchView";
+import { TriviaCard } from "./Trivia";
+import { Visuals } from "./Visual";
 
 const KIND_COLOR: Record<Insight["kind"], "danger" | "important" | "brand" | "informative" | "subtle" | "success"> = {
   goal: "success", red_card: "danger", penalty: "important", big_chance: "brand", momentum: "informative",
@@ -92,6 +94,10 @@ export function Insights({ matchId, league, controls }: { matchId: string; leagu
                 {Object.entries(i.stats).map(([k, v]) => <span key={k}>{k} <b>{v}</b></span>)}
               </div>
             )}
+            {/* Casual fans get a "Did you know?" about a player or club in the moment. */}
+            {audience === "casual" && i.trivia && <TriviaCard trivia={i.trivia} />}
+            {/* Captions are written in English; other languages get the chart without one. */}
+            <Visuals visuals={i.visuals} league={league} showCaptions={english} />
             {i.player_ids.length > 0 && (
               <div className="insight-players">
                 {i.player_ids.map((p) => (

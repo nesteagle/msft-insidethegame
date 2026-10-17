@@ -55,12 +55,17 @@ class ScriptedClient(BaseChatClient):
             revised = "FACT-CHECKER FOUND" in prompt
             body = {"headline": "Revised" if revised else "Draft", "explanation": "A flowing move.",
                     "why_it_matters": "It puts them ahead.", "key_stats": [{"label": "xG", "value": "0.27"}],
-                    "player_ids": ["P2026"], "event_ids": ["M0001-00500"]}
+                    "player_ids": ["P2026"], "event_ids": ["M0001-00500"],
+                    "visuals": [{"type": "xg_race", "caption": "They have been creating more all half."},
+                                {"type": "compare", "caption": "Not offered for every moment, so it may be dropped."}]}
         elif name == "Verdict":
             ok = self.verdicts.pop(0) if self.verdicts else True
             body = {"ok": ok, "problems": [] if ok else ["The minute is wrong"]}
         elif name == "Narration":
             body = {"headline": "Vertooren strikes", "text": "Vertooren finishes a flowing move."}
+        elif name == "Story":
+            body = {"text": "They call him the Rocket.", "es": "Le llaman el Cohete.", "fr": "On l'appelle la Fusée.",
+                    "pt": "Chamam-lhe o Foguete.", "de": "Sie nennen ihn die Rakete."}
         elif name == "Variant":
             body = {"headline": "¡Gol de Vertooren!", "text": "Vertooren marca."}
         else:

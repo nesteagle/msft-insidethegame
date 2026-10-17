@@ -469,7 +469,8 @@ footballfoundry match --home T05 --away T12 --move "61:home:RW:AM" --tactic "61:
 footballfoundry match --formation "60:away:3-5-2" --tactic "60:away:press_intensity=+0.3,width=+0.2"
 ```
 
-Each run writes the ground truth to `data/truth/<match_id>.json`: the scripted changes and what they measurably did
+[`scenarios/README.md`](scenarios/README.md) explains each preset, how scenarios work, how strong their effects
+are, and how to write your own. Each run writes the ground truth to `data/truth/<match_id>.json`: the scripted changes and what they measurably did
 over the 20 minutes either side (shots, xG, PPDA, defensive line height, opponents' passes under pressure, final
 third entries, and the moved player's touches and central share). That's the answer key for judging whether the
 agents explained the change correctly. For example, moving a right winger to number 10 took his share of central
@@ -531,4 +532,6 @@ data/
 - [x] MCP server with spoiler-safe match tools; Eventhouse KQL functions; Bicep + `azd` deployment
 - [x] Web app (React): live match over the agents' relay with DVR replay, personalised insights and lower thirds,
       audience / language / club / player controls, chat with the match assistant over AG-UI
-- [ ] Optional LLM enrichment via Microsoft Foundry (player bios, club lore, multilingual content)
+- [x] Visuals: animated move replays, goals reel, shot map, xG race, momentum and team comparison in insights and chat
+- [x] Lore for casual fans: "Did you know?" player and club facts from the league data, retold in five languages
+      by a Foundry storyteller agent when one is configured

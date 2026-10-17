@@ -12,12 +12,15 @@ from footballfoundry_schema import Insight, InsightVariant
 
 from footballfoundry_agents.briefs import Brief
 from footballfoundry_agents.reference import Reference
+from footballfoundry_agents.visuals import choose
 
 DISPLAY_S = {1: 12.0, 2: 8.0, 3: 6.0}
 
 
 def make_insight(brief: Brief, *, headline: str, text: str, why: str, stats: dict[str, str],
-                 verified: bool, player_ids: list[str] | None = None, event_ids: list[str] | None = None) -> Insight:
+                 verified: bool, player_ids: list[str] | None = None, event_ids: list[str] | None = None,
+                 visuals: list[tuple[str, str]] | None = None) -> Insight:
+    """`visuals` are the author's picks, (type, caption); without any, the moment's default visuals are shown."""
     return Insight(
         insight_id=brief.insight_id, match_id=brief.match_id, kind=brief.kind, seq=brief.seq, period=brief.period,
         minute=brief.minute, clock=brief.clock, team_id=brief.team_id,
@@ -25,6 +28,7 @@ def make_insight(brief: Brief, *, headline: str, text: str, why: str, stats: dic
         event_ids=event_ids if event_ids is not None else brief.event_ids,
         headline=headline[:80], text=text, why_it_matters=why, stats=stats, priority=brief.priority,
         display_s=DISPLAY_S[brief.priority], verified=verified, created_at=datetime.now(timezone.utc),
+        visuals=choose(brief.visuals, brief.kind, visuals),
     )
 
 

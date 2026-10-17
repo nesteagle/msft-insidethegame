@@ -11,6 +11,8 @@ Tools:
     season_query                                            through the MCP server, before this match's matchday
     explain_moment                                          hands one event to the analyst workflow (analyst,
                                                             fact-checker, narrator) for a verified explanation
+    show_visual                                             a chart or an animated move replay, drawn in the chat
+    lore                                                    fun facts and the profile of a player or club
 Frontend tools (declared by the page, run in the browser): seek_to, focus_player, set_view.
 """
 
@@ -20,8 +22,8 @@ import json
 import logging
 from typing import Any, Literal
 
-from agent_framework import Agent, BaseChatClient, ChatResponse, ChatResponseUpdate, Content, Message, \
-    ResponseStream, tool
+from agent_framework import Agent, BaseChatClient, ChatResponse, ChatResponseUpdate, Content, \
+    FunctionInvocationLayer, Message, ResponseStream, tool
 from pydantic import BaseModel, ValidationError
 from starlette.requests import Request
 from starlette.responses import JSONResponse, Response, StreamingResponse
@@ -30,6 +32,8 @@ from footballfoundry_agents.briefs import build
 from footballfoundry_agents.service import AnalystService
 from footballfoundry_agents.state import MatchState
 from footballfoundry_agents.triggers import Moment
+from footballfoundry_agents.visuals import ABOUT, VISUAL_TYPES
+from footballfoundry_agents.visuals import build as build_visual
 from footballfoundry_mcp import views
 
 log = logging.getLogger(__name__)
@@ -37,7 +41,7 @@ log = logging.getLogger(__name__)
 AUDIENCE_STYLE = {
     "broadcast": "neutral and clear, like a studio presenter",
     "analyst": "precise and tactical, with numbers",
-    "casual": "friendly and plain, no jargon",
+    "casual": "friendly and plain, no jargon, with a fun fact about a player or club now and then",
     "player": "focused on the viewer's chosen player",
 }
 
@@ -78,6 +82,11 @@ Rules:
 - Use your tools for facts. They only see the match up to where the viewer is; never guess at what comes later.
 - Be concise: 2-5 sentences unless asked for more. Mention minutes and names, not ids.
 - For "why" questions about a specific moment, call explain_moment: it runs the analyst team and fact-checker.
+- Show, don't just tell: when a chart or a replay would help (a goal or chance, the xG race, shots, momentum, team
+  comparison), call show_visual; the page draws it under your answer. Mention what to look for in it. explain_moment
+  answers come with their own visuals.
+- Casual fans love a story: when a player or club comes up, you may add one fun fact from the lore tool (keep it
+  to one sentence, and never present it as something that happened in this match).
 - The page has tools you can call: seek_to(seq) replays the match from an event (use it when the viewer asks to
   see or rewatch something), focus_player(player_id) follows one player, set_view(audience, language) changes
   how insights are written. Say what you did when you use them.
@@ -92,6 +101,15 @@ def bound_tools(state: ChatState, service: AnalystService, mcp: Any) -> list[Any
 
     def seen():
         return service.log.get(match_id).up_to(as_of)
+
+    def replay(until_seq: int | None = None) -> MatchState:
+        """The match state as it was at `until_seq` (default: where the viewer is)."""
+        state_ = MatchState(match_id)
+        for e in seen():
+            if until_seq is not None and e.seq > until_seq:
+                break
+            state_.apply(e)
+        return state_
 
     @tool(description="Score, clock, possession, team stats, attacking threat (last 10 min), goals, cards and subs")
     async def match_state() -> dict[str, Any]:
@@ -133,11 +151,7 @@ def bound_tools(state: ChatState, service: AnalystService, mcp: Any) -> list[Any
         anchor = next((e for e in events_ if e.event_id == event_id), None)
         if anchor is None:
             return {"error": f"{event_id} hasn't happened yet for this viewer, or doesn't exist"}
-        state_ = MatchState(match_id)
-        for e in events_:
-            if e.seq > anchor.seq:
-                break
-            state_.apply(e)
+        state_ = replay(anchor.seq)
         kind = ("goal" if anchor.type == "shot" and anchor.outcome == "goal"
                 else "red_card" if anchor.type == "card" and anchor.outcome in ("red", "second_yellow")
                 else "big_chance" if anchor.type == "shot" else "summary")
@@ -147,25 +161,71 @@ def bound_tools(state: ChatState, service: AnalystService, mcp: Any) -> list[Any
         brief = build(state_, Moment(match_id, kind, anchor, chain, anchor.team_id, players, 2), service.ref)
         insight = await service.writer.write(brief)
         return {"headline": insight.headline, "text": insight.text, "why_it_matters": insight.why_it_matters,
-                "stats": insight.stats, "verified": insight.verified}
+                "stats": insight.stats, "verified": insight.verified,
+                "visuals": [v.model_dump(mode="json") for v in insight.visuals]}
 
-    return [match_state, events, player_stats, lookup, insights, season_query, explain_moment]
+    @tool(description="Draw a visual in the chat: " + "; ".join(f"{t} = {ABOUT[t]}" for t in VISUAL_TYPES)
+                      + ". For move, pass the event_id of the shot or goal to replay its move; without one it "
+                        "replays every goal so far.")
+    async def show_visual(type: Literal["move", "shot_map", "xg_race", "momentum", "compare"],
+                          event_id: str | None = None) -> dict[str, Any]:
+        anchor = next((e for e in seen() if e.event_id == event_id), None) if event_id else None
+        if event_id and anchor is None:
+            return {"error": f"{event_id} hasn't happened yet for this viewer, or doesn't exist"}
+        state_ = replay(anchor.seq if anchor else None)
+        visual = build_visual(state_, type, service.ref, anchor=anchor if type == "move" else None)
+        if visual is None:
+            return {"error": f"nothing to draw for {type} yet"}
+        return {"shown": type, "visual": visual.model_dump(mode="json")}
+
+    @tool(description="Fun facts and the profile of a player or club (by id, e.g. P0124 or T03): fastest, "
+                      "youngest, oldest club, biggest ground... From the league data, true all season")
+    async def lore(subject_id: str) -> dict[str, Any]:
+        if subject_id not in service.lore.facts:
+            return {"error": f"no player or club {subject_id}; use lookup to find the id"}
+        return service.lore.about(subject_id)
+
+    return [match_state, events, player_stats, lookup, insights, season_query, explain_moment, show_visual, lore]
 
 
-class OfflineChatClient(BaseChatClient):
-    """Without a Foundry model the assistant still answers, with the facts it can compute."""
+# Offline, a question that mentions one of these gets the matching visual (first match wins).
+OFFLINE_VISUALS = (("shot map", "shot_map"), ("shots", "shot_map"), ("xg", "xg_race"), ("momentum", "momentum"),
+                   ("on top", "momentum"), ("compare", "compare"), ("stats", "compare"), ("numbers", "compare"),
+                   ("goal", "move"), ("replay", "move"), ("move", "move"))
+
+
+def offline_visual(question: str) -> str | None:
+    q = question.lower()
+    return next((v for word, v in OFFLINE_VISUALS if word in q), None)
+
+
+class OfflineChatClient(FunctionInvocationLayer, BaseChatClient):
+    """Without a Foundry model the assistant still answers, with the facts it can compute, and draws the visual a
+    question asks for (by keyword) through the same show_visual tool the model would call."""
 
     def __init__(self, text: str) -> None:
         super().__init__()
         self.text = text
 
+    def _reply(self, messages: list[Message]) -> list[Content]:
+        last_user = max((i for i, m in enumerate(messages) if m.role == "user"), default=-1)
+        answered = any(c.type == "function_result" for m in messages[last_user + 1:] for c in m.contents)
+        visual = offline_visual(messages[last_user].text) if last_user >= 0 and not answered else None
+        if visual:
+            return [Content.from_function_call(f"offline-{len(messages)}", "show_visual", arguments={"type": visual})]
+        return [Content.from_text(self.text)]
+
     def _inner_get_response(self, *, messages, stream, options, **kwargs):
+        contents = self._reply(list(messages))
         if not stream:
             async def respond() -> ChatResponse:
-                return ChatResponse(messages=[Message("assistant", [self.text])])
+                return ChatResponse(messages=[Message("assistant", contents)])
             return respond()
 
         async def updates():
+            if contents[0].type != "text":
+                yield ChatResponseUpdate(contents=contents, role="assistant")
+                return
             for word in self.text.split(" "):
                 yield ChatResponseUpdate(contents=[Content.from_text(word + " ")], role="assistant")
 
@@ -197,7 +257,8 @@ def chat_endpoint(service: AnalystService, client: Any | None, mcp: Any | None):
         except (ValidationError, ValueError, json.JSONDecodeError) as exc:
             return JSONResponse({"error": str(exc)}, status_code=400)
         if client is None:
-            agent = Agent(OfflineChatClient(offline_answer(state, service)), name="match_assistant")
+            agent = Agent(OfflineChatClient(offline_answer(state, service)), name="match_assistant",
+                          tools=bound_tools(state, service, mcp))
         else:
             agent = Agent(client, instructions(state, service), name="match_assistant",
                           tools=bound_tools(state, service, mcp))

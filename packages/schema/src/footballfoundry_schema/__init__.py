@@ -19,7 +19,7 @@ from typing import Annotated, Any, Literal
 
 from pydantic import AfterValidator, BaseModel, ConfigDict, Field
 
-SCHEMA_VERSION = "0.2.0"
+SCHEMA_VERSION = "0.3.0"
 
 Rating = Annotated[int, Field(ge=1, le=99)]
 Unit = Annotated[float, Field(ge=0.0, le=1.0)]
@@ -309,6 +309,101 @@ InsightKind = Literal[
 Audience = Literal["broadcast", "analyst", "casual", "player"]
 
 
+VisualType = Literal["move", "shot_map", "xg_race", "momentum", "compare"]
+
+
+class MoveStep(BaseModel):
+    """One on-ball action of an animated move. Coordinates are the acting team's, as in `Event`."""
+
+    seq: int
+    clock: str
+    type: str
+    team_id: str
+    player_id: str | None = None
+    outcome: str | None = None
+    x: Coord
+    y: Coord
+    end_x: Coord | None = None
+    end_y: Coord | None = None
+
+
+class Clip(BaseModel):
+    """A move to animate: the actions of one possession, ending in `label`'s moment."""
+
+    label: str = Field(description="e.g. \"34' Rossi\"")
+    steps: list[MoveStep]
+
+
+class ShotPoint(BaseModel):
+    seq: int
+    period: int = 1
+    minute: int
+    t: float = Field(default=0.0, description="Minutes from kick-off without the restart at 45': second-half "
+                                              "minutes follow on from the end of first-half added time")
+    clock: str
+    team_id: str
+    player_id: str | None = None
+    x: Coord
+    y: Coord
+    xg: float
+    outcome: str | None = None
+
+
+class MinuteThreat(BaseModel):
+    minute: int
+    home: float
+    away: float
+
+
+class CompareRow(BaseModel):
+    key: str = Field(description="A box-score key: goals, xg, shots, shots_on_target, possession, passes, ...")
+    home: float
+    away: float
+
+
+class Visual(BaseModel):
+    """A chart or an animation to show with an insight or a chat answer, rendered by the web app.
+
+    Built in code from the match events, never by a model, so the numbers are always the real ones. A model only
+    picks which visuals to show and writes the caption. Which fields are set depends on `type`:
+
+        move        clips      the move (or, in a recap, every goal) replayed on a mini pitch, looping like a GIF
+        shot_map    shots      every shot so far, sized by xG
+        xg_race     shots      cumulative xG per team by minute, goals marked
+        momentum    threat     attacking threat per minute for each side
+        compare     rows       the two teams' numbers side by side
+    """
+
+    type: VisualType
+    home_id: str
+    away_id: str
+    caption: str = ""
+    clips: list[Clip] = Field(default_factory=list)
+    shots: list[ShotPoint] = Field(default_factory=list)
+    threat: list[MinuteThreat] = Field(default_factory=list)
+    rows: list[CompareRow] = Field(default_factory=list)
+    now: float | None = Field(default=None, description="xg_race: the match minute it was drawn at (as ShotPoint.t)")
+    half_time: float | None = Field(default=None, description="xg_race: where the second half starts (as ShotPoint.t)")
+
+
+class Trivia(BaseModel):
+    """A "Did you know?" for casual fans: a fact about a player or club from the league data, sometimes told as a
+    short story by the storyteller agent.
+
+    `key` and `params` let any client write the fact in its own language (the web app does, in five); `text` is
+    the English version. When the storyteller wrote it, `text` is its story and `translations` holds the same
+    story in other languages, keyed by BCP 47 tag.
+    """
+
+    trivia_id: str = Field(description="`<key>:<subject id>`: the same fact is never shown twice in a match")
+    key: str = Field(description="Which fact, e.g. youngest_in_squad, fastest_in_league, founded, biggest_ground")
+    subject_id: str = Field(description="The player or club it's about")
+    params: dict[str, Any] = Field(default_factory=dict, description="Values for the client's wording of `key`")
+    text: str
+    translations: dict[str, str] = Field(default_factory=dict)
+    source: Literal["data", "storyteller"] = "data"
+
+
 class InsightVariant(BaseModel):
     """An insight rewritten for one audience, language and focus."""
 
@@ -349,6 +444,8 @@ class Insight(BaseModel):
     verified: bool = Field(default=False, description="Passed the fact-checker")
     language: str = "en"
     created_at: datetime
+    visuals: list[Visual] = Field(default_factory=list, description="Charts and animated replays for this moment")
+    trivia: Trivia | None = Field(default=None, description="A fun fact about a player or club in the moment")
     variants: dict[str, InsightVariant] = Field(default_factory=dict, description="Keyed by variant_key()")
 
     @staticmethod

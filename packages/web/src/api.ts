@@ -110,7 +110,62 @@ export interface Insight {
   verified: boolean;
   language: string;
   created_at: string;
+  visuals?: Visual[];
+  trivia?: Trivia | null;
   view: InsightView;
+}
+
+/** A "Did you know?" for casual fans (see footballfoundry_schema.Trivia). */
+export interface Trivia {
+  trivia_id: string;
+  key: string;
+  subject_id: string;
+  params: Record<string, string | number>;
+  text: string; // English
+  translations: Record<string, string>; // the storyteller's story in other languages
+  source: "data" | "storyteller";
+}
+
+/** One action of an animated move. Coordinates are the acting team's (x 0-100 towards the opponent's goal). */
+export interface MoveStep {
+  seq: number;
+  clock: string;
+  type: string;
+  team_id: string;
+  player_id: string | null;
+  outcome: string | null;
+  x: number;
+  y: number;
+  end_x: number | null;
+  end_y: number | null;
+}
+
+export interface ShotPoint {
+  seq: number;
+  period: number;
+  minute: number;
+  t: number; // minutes from kick-off, continuing through half-time (the clock restarts at 45')
+  clock: string;
+  team_id: string;
+  player_id: string | null;
+  x: number;
+  y: number;
+  xg: number;
+  outcome: string | null;
+}
+
+/** A chart or animated replay, built from the events by the agents service (see footballfoundry_schema.Visual). */
+export interface Visual {
+  type: "move" | "shot_map" | "xg_race" | "momentum" | "compare";
+  home_id: string;
+  away_id: string;
+  caption: string;
+  clips: { label: string; steps: MoveStep[] }[];
+  shots: ShotPoint[];
+  threat: { minute: number; home: number; away: number }[];
+  rows: { key: string; home: number; away: number }[];
+  now: number | null; // xg_race: the minute it was drawn at, as ShotPoint.t
+  half_time: number | null; // xg_race: where the second half starts, as ShotPoint.t
 }
 
 export interface Viewer {

@@ -86,7 +86,32 @@ personaliser runs once per insight and setting, however many viewers share it.
 
 An insight ([`footballfoundry_schema.Insight`](../schema/src/footballfoundry_schema/__init__.py)) carries `seq`,
 `clock` and `period` to place it on the match timeline, `headline` for a lower third, `text`, `why_it_matters`,
-`stats` for an on-screen graphic, `priority` and `display_s`, and `event_ids`: the events it's built on.
+`stats` for an on-screen graphic, `priority` and `display_s`, and `event_ids`: the events it's built on. It may
+also carry `visuals` (charts and animated move replays) and `trivia` (a fun fact for casual fans), both below.
+
+## Visuals
+
+Insights and chat answers can carry **visuals** ([visuals.py](src/footballfoundry_agents/visuals.py)) that the web
+app draws: `move` (the move behind a goal or chance replayed on a mini pitch, looping like a GIF; at full time, a
+reel of every goal), `shot_map`, `xg_race`, `momentum` and `compare`. They're built in code from the match state
+when the moment fires, so the numbers are always the real ones and nothing after the moment gets in. The fact sheet
+lists the visuals a moment can show; the analyst picks up to two and captions them, and the fact-checker checks the
+captions. Without a pick (offline, or the template fallback) each kind of moment has defaults.
+
+## Lore for casual fans
+
+Each insight carries a `trivia`: a "Did you know?" about a player or club in the moment
+([lore.py](src/footballfoundry_agents/lore.py)). The facts come from the league data, so they're true and work
+offline: the fastest or best finisher in the league or the squad (ties become "one of the 2 fastest"), the youngest
+and oldest players, one of only N players from a country, the oldest club, the biggest ground, the team that
+presses hardest, the manager and their formation. A goal gets a fact about the scorer, then their club; half-time
+and full-time are about the clubs; no fact is shown twice in a match. The web app shows it to casual fans, worded
+in the viewer's language from the fact's `key` and `params`.
+
+With Foundry configured, the **storyteller** agent retells each fact as a one- or two-sentence story, adding
+harmless colour (a nickname, a fan tradition) but no new numbers or match facts, in English, Spanish, French,
+Portuguese and German at once. Stories are cached per fact; if the storyteller fails, the plain fact is shown. The
+web app marks them "Told by the storyteller agent".
 
 ## Translation
 
@@ -122,10 +147,13 @@ past the viewer whatever the model asks:
 | --- | --- |
 | `match_state`, `events`, `player_stats`, `lookup`, `insights` | From the relay log and the insights store, up to `as_of` |
 | `season_query` | Through the MCP server, matchdays before this match only |
-| `explain_moment(event_id)` | Hands one moment to the analyst workflow (analyst → fact-checker → narrator) and returns the verified explanation |
+| `explain_moment(event_id)` | Hands one moment to the analyst workflow (analyst → fact-checker → narrator) and returns the verified explanation, with its visuals |
+| `show_visual(type, event_id?)` | Draws a visual under the answer: a move replay (the goals reel without an event), shot map, xG race, momentum or team comparison |
+| `lore(subject_id)` | A player's or club's profile and fun facts, for casual fans |
 | `seek_to`, `focus_player`, `set_view` | Declared by the page and run in the browser: replay a moment, follow a player, change the view |
 
-Without a Foundry model the assistant still answers, with the score and key numbers computed from the log.
+Without a Foundry model the assistant still answers, with the score and key numbers computed from the log, and
+draws the visual a question asks for ("show me the xG race", "replay the goal").
 
 ## Design
 
@@ -143,6 +171,8 @@ Event Hubs ─► consumer ─► MatchState ─► TriggerEngine ─► Brief �
 | [`briefs.py`](src/footballfoundry_agents/briefs.py) | Freezes the facts at trigger time, so a slow model never sees later events |
 | [`workflow.py`](src/footballfoundry_agents/workflow.py) | The Agent Framework workflow and the personaliser |
 | [`templates.py`](src/footballfoundry_agents/templates.py) | Deterministic insights: offline mode, and the fallback when the workflow fails |
+| [`visuals.py`](src/footballfoundry_agents/visuals.py) | Charts and move replays for insights and chat answers, built from the match state |
+| [`lore.py`](src/footballfoundry_agents/lore.py) | "Did you know?" facts from the league data, and the storyteller agent |
 | [`service.py`](src/footballfoundry_agents/service.py) | Wires it together; one writer per match keeps insights in order |
 | [`stores.py`](src/footballfoundry_agents/stores.py) | Insights, state snapshots and profiles in memory, files or Cosmos DB |
 | [`guard.py`](src/footballfoundry_agents/guard.py) | First stream wins: ignores a second stream (another `stream_id`) of a match that's still live |
@@ -166,6 +196,7 @@ waiting summaries are dropped so the overlay stays close to live.
 | Fact-checker | Checks every claim; sends the problems back to the author (up to 2 attempts) | MCP |
 | Narrator | Broadcast copy from the approved analysis only | none |
 | Personaliser | Rewrites per audience, favourite club and focus player, without new facts (in English when Azure Translator is configured) | none |
+| Storyteller | Retells a league fact as a short story for casual fans, in five languages | none |
 
 Every agent returns structured output (Pydantic models), so the hand-offs are typed. An insight the fact-checker
 never approved is published with `verified: false`. If any step fails or times out, the template writer produces

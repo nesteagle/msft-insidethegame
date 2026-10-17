@@ -3,9 +3,10 @@ import { Button, Spinner, Text, Textarea } from "@fluentui/react-components";
 import { SendRegular, SparkleRegular } from "@fluentui/react-icons";
 import { useEffect, useMemo, useRef, useState } from "react";
 import { useTranslation } from "react-i18next";
-import type { Audience, League } from "../api";
+import type { Audience, League, Visual } from "../api";
 import { usePlayback, useViewer } from "../store";
 import type { PageControls } from "./MatchView";
+import { Visuals } from "./Visual";
 
 /**
  * Chat with the match assistant over AG-UI (POST /api/chat). Every message carries the page state, most
@@ -42,6 +43,16 @@ const MAX_ROUNDS = 4;
 
 type Note = { id: string; text: string };
 
+/** The visuals in a backend tool's result: show_visual returns one, explain_moment a list. */
+function visualsIn(content: string): Visual[] {
+  try {
+    const r = JSON.parse(content);
+    return r?.visual ? [r.visual] : Array.isArray(r?.visuals) ? r.visuals : [];
+  } catch {
+    return [];
+  }
+}
+
 export function Chat({ matchId, league, controls }: { matchId: string; league: League; controls: PageControls }) {
   const { t } = useTranslation();
   const userId = useViewer((s) => s.userId);
@@ -50,12 +61,14 @@ export function Chat({ matchId, league, controls }: { matchId: string; league: L
   const [messages, setMessages] = useState<Message[]>([]);
   const [streaming, setStreaming] = useState<{ id: string; text: string } | null>(null);
   const [notes, setNotes] = useState<Record<string, Note>>({}); // tool call id -> what happened, for display
+  const [visuals, setVisuals] = useState<Record<string, Visual[]>>({}); // tool call id -> what it drew
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [input, setInput] = useState("");
   const scroller = useRef<HTMLDivElement>(null);
 
-  useEffect(() => { scroller.current?.scrollTo({ top: scroller.current.scrollHeight }); }, [messages, streaming, notes]);
+  useEffect(() => { scroller.current?.scrollTo({ top: scroller.current.scrollHeight }); },
+            [messages, streaming, notes, visuals]);
   useEffect(() => () => agent.abortRun(), [agent]);
 
   function pageState() {
@@ -110,8 +123,12 @@ export function Chat({ matchId, league, controls }: { matchId: string; league: L
           onTextMessageContentEvent: ({ event, textMessageBuffer }) => {
             setStreaming({ id: event.messageId, text: textMessageBuffer });
           },
+          onToolCallResultEvent: ({ event }) => {
+            const drawn = typeof event.content === "string" ? visualsIn(event.content) : [];
+            if (drawn.length) setVisuals((v) => ({ ...v, [event.toolCallId]: drawn }));
+          },
           onToolCallEndEvent: ({ event, toolCallName }) => {
-            if (!FRONTEND.has(toolCallName)) {
+            if (!FRONTEND.has(toolCallName) && toolCallName !== "show_visual") { // a drawn visual speaks for itself
               setNotes((n) => ({ ...n, [event.toolCallId]: { id: event.toolCallId,
                                                               text: t("chat.usedTool", { tool: toolCallName.replace(/_/g, " ") }) } }));
             }
@@ -162,6 +179,9 @@ export function Chat({ matchId, league, controls }: { matchId: string; league: L
           return (
             <div key={m.id} className={`msg ${m.role}`}>
               {calls.map((c) => notes[c.id] && <div key={c.id} className="tool-note">{notes[c.id].text}</div>)}
+              {calls.map((c) => visuals[c.id] && (
+                <Visuals key={`v-${c.id}`} visuals={visuals[c.id]} league={league} showCaptions={false} />
+              ))}
               {text && streaming?.id !== m.id && <div className="bubble">{text}</div>}
             </div>
           );

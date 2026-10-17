@@ -35,6 +35,10 @@ class Reference:
         p = self.player(player_id)
         return p.name if p else (player_id or "?")
 
+    def player_short(self, player_id: str | None) -> str:
+        p = self.player(player_id)
+        return p.short_name if p else (player_id or "?")
+
     def player_label(self, player_id: str | None) -> str:
         """`Name (P0124, ST, T01)`: the name for the reader, the id for the tools."""
         p = self.player(player_id)

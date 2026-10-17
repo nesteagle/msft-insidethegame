@@ -14,6 +14,16 @@ from footballfoundry_schema import Event
 from footballfoundry_schema.stats import add_event, finish, threat
 
 RECENT = 200  # events kept for evidence (a long possession is ~40)
+MOVE_STEPS = 15  # actions kept per goal move, for the animated replays
+MOVE_TYPES = ("pass", "carry", "take_on", "shot")
+
+
+def move_steps(chain: list[Event], team_id: str | None, limit: int = MOVE_STEPS) -> list[dict[str, Any]]:
+    """The attacking team's on-ball actions of a move, compact, for an animated replay."""
+    steps = [{"seq": e.seq, "clock": e.clock, "type": e.type, "team_id": e.team_id, "player_id": e.player_id,
+              "outcome": e.outcome, "x": e.x, "y": e.y, "end_x": e.end_x, "end_y": e.end_y}
+             for e in chain if e.type in MOVE_TYPES and e.team_id == team_id and e.x is not None]
+    return steps[-limit:]
 
 
 def match_seconds(e: Event) -> int:
@@ -40,6 +50,10 @@ class MatchState:
         self.recent: deque[Event] = deque(maxlen=RECENT)
         self.off: set[str] = set()  # substituted off or sent off
         self.keepers: dict[str, str] = {}  # team -> goalkeeper, from the kick-off team sheets
+        # The whole match, compact, for charts and the full-time reel (`recent` only reaches back ~200 events).
+        self.shots: list[dict[str, Any]] = []
+        self.p1_end_minute = 45  # the second half's clock restarts at 45'; charts continue from here
+        self.goal_moves: list[dict[str, Any]] = []  # {seq, clock, player_id, steps}
         self.triggers: dict[str, Any] = {}  # bookkeeping owned by TriggerEngine
 
     # -- folding ---------------------------------------------------------------------------------------------
@@ -65,6 +79,8 @@ class MatchState:
                 self.away_id = e.team_id
         if e.type == "period_end" and e.period == 2:
             self.finished = True
+        if e.type == "period_end" and e.period == 1:
+            self.p1_end_minute = max(45, e.minute)
         add_event(self.teams[e.team_id], e)
         if e.player_id and e.type != "substitution":
             add_event(self.players[e.player_id], e)
@@ -74,6 +90,15 @@ class MatchState:
         if t:
             self.threat_by_minute[e.team_id][e.minute] += t
         self.recent.append(e)
+        if e.type == "shot" and e.x is not None:
+            t = e.minute + e.second / 60 + (self.p1_end_minute - 44 if e.period == 2 else 0)
+            self.shots.append({"seq": e.seq, "period": e.period, "minute": e.minute, "t": round(t, 2),
+                               "clock": e.clock, "team_id": e.team_id,
+                               "player_id": e.player_id, "x": e.x, "y": e.y, "xg": e.xg or 0.0,
+                               "outcome": e.outcome})
+            if e.outcome == "goal":
+                self.goal_moves.append({"seq": e.seq, "clock": e.clock, "player_id": e.player_id,
+                                        "steps": move_steps(self.possession_chain(e.possession_id), e.team_id)})
         return True
 
     # -- views -----------------------------------------------------------------------------------------------
@@ -98,6 +123,12 @@ class MatchState:
             return sum(v for m, v in self.threat_by_minute[team_id].items() if m >= lo) if team_id else 0.0
 
         return round(total(self.home_id), 2), round(total(self.away_id), 2)
+
+    def match_minute(self) -> float:
+        """Where the match is, in the shots' continuous minutes (see `ShotPoint.t`)."""
+        last = self.recent[-1] if self.recent else None
+        second = last.second / 60 if last else 0.0
+        return round(self.minute + second + (self.p1_end_minute - 44 if self.period == 2 else 0), 2)
 
     def possession_chain(self, possession_id: int, limit: int = 30) -> list[Event]:
         return [e for e in self.recent if e.possession_id == possession_id][-limit:]
@@ -130,6 +161,9 @@ class MatchState:
             "recent": [e.model_dump(mode="json") for e in self.recent],
             "off": sorted(self.off),
             "keepers": self.keepers,
+            "shots": self.shots,
+            "p1_end_minute": self.p1_end_minute,
+            "goal_moves": self.goal_moves,
             "triggers": self.triggers,
         }
 
@@ -149,5 +183,8 @@ class MatchState:
         s.recent.extend(Event.model_validate(e) for e in snap["recent"])
         s.off = set(snap.get("off", []))
         s.keepers = dict(snap.get("keepers", {}))
+        s.shots = list(snap.get("shots", []))
+        s.p1_end_minute = snap.get("p1_end_minute", 45)
+        s.goal_moves = list(snap.get("goal_moves", []))
         s.triggers = dict(snap.get("triggers", {}))
         return s

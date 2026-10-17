@@ -28,7 +28,7 @@ from agent_framework import Agent, Executor, WorkflowBuilder, WorkflowContext, h
 from pydantic import BaseModel, Field
 from typing_extensions import Never
 
-from footballfoundry_schema import Insight, InsightVariant
+from footballfoundry_schema import Insight, InsightVariant, VisualType
 
 from footballfoundry_agents.briefs import Brief
 from footballfoundry_agents.reference import Reference
@@ -44,6 +44,11 @@ class Stat(BaseModel):
     value: str = Field(description="Display value, e.g. '0.27' or '11'")
 
 
+class VisualPick(BaseModel):
+    type: VisualType = Field(description="One of the visuals offered in the fact sheet")
+    caption: str = Field(description="One sentence on what the viewer should notice in it, at most 120 characters")
+
+
 class Analysis(BaseModel):
     headline: str = Field(description="Working headline, at most 60 characters")
     explanation: str = Field(description="What happened and how, 2-3 sentences")
@@ -51,6 +56,8 @@ class Analysis(BaseModel):
     key_stats: list[Stat] = Field(description="2-4 numbers worth putting on screen")
     player_ids: list[str] = Field(description="Players central to the moment, most important first")
     event_ids: list[str] = Field(description="Event ids the analysis relies on")
+    visuals: list[VisualPick] = Field(description="0-2 of the visuals offered in the fact sheet that best show "
+                                                  "the point; empty if none helps")
 
 
 class Verdict(BaseModel):
@@ -80,15 +87,18 @@ ANALYST = f"""You are the lead match analyst for a live football broadcast.
 Explain why the moment matters, not just that it happened. Look at how it was created (the passing move,
 progressive passes, pressure, set piece), the game state (score, minute, momentum, possession versus threat:
 control or chaos), and the players' numbers today. Be specific and concrete; no clichés.
+Pick the visuals that make your point (a goal's move replay, the xG race...) and caption each with what to notice.
 {GROUNDING}"""
 
 RECAP = f"""You write the full-time recap for a football broadcast's studio segment.
 Tell the story of the match in order: who controlled it, the turning points, and why the result happened.
 Use the earlier insights listed in the fact sheet as the timeline of turning points.
+Pick the visuals that tell that story (the goals reel, the xG race, the shot map) and caption each.
 {GROUNDING}"""
 
 FACT_CHECKER = f"""You are the fact-checker for a live football broadcast. Check every factual claim in the
-analysis: names, minutes, scores, numbers, who did what, and the cited event ids. Interpretation is fine when the
+analysis: names, minutes, scores, numbers, who did what, the cited event ids, and the visual captions (each must
+match what that visual shows, as described in the fact sheet). Interpretation is fine when the
 data supports it. Set ok to false and list each problem if anything is wrong or unsupported.
 {GROUNDING}"""
 
@@ -210,6 +220,7 @@ class Narrator(Executor):
             stats={s.label: s.value for s in a.key_stats[:4]}, verified=msg.verified,
             player_ids=[p for p in a.player_ids if p in known] or msg.brief.player_ids,
             event_ids=a.event_ids or msg.brief.event_ids,
+            visuals=[(v.type, v.caption[:160]) for v in a.visuals],
         )
         await ctx.yield_output(insight)
 
