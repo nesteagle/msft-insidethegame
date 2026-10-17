@@ -253,6 +253,7 @@ azd provision              # after infra changes (Bicep, environment settings)
 | Insights stay English in Spanish | Translator not configured, or its role is missing | Agents logs: the `translation:` line, 403s from Translator |
 | Chat answers "running offline" | No Foundry client | As for missing insights |
 | A match you streamed doesn't appear | Someone else is streaming the same match id | Agents logs: `already being streamed`; use another `--match-id` |
+| `AGENTS_URL` doesn't load, `/healthz` fails | The container apps were stopped to save money | Start them ([12. Costs and clean-up](#12-costs-and-clean-up)) |
 | No Spotlight cards | The stream runs very fast (a spotlight needs 10 real seconds without an insight), or every story has been told | Stream at 30× or slower |
 | Old insights have no charts or "Did you know?" | They were written before the update; stored insights aren't rewritten | Stream the match again from the control room |
 | Old matches stuck in the dropdown, "(no new events)" | A stream stopped partway | Ignore them, or restart the agents revision |
@@ -261,8 +262,44 @@ azd provision              # after infra changes (Bicep, environment settings)
 
 ## 12. Costs and clean-up
 
-While deployed, the always-on parts (two container apps with one replica each, Event Hubs Standard, the registry)
-cost roughly $1–3 a day. Cosmos DB, Translator and model tokens are pay-per-use.
+While deployed, the always-on parts cost roughly **$3–5 a day** at list prices:
+
+| Resource | Roughly, per day |
+| --- | --- |
+| Container Apps: agents (0.5 vCPU, 1 GiB) and MCP (1 vCPU, 2 GiB), one replica each | $2–3.50 (the agents count as active, since they read Event Hubs all the time; the MCP server is mostly idle) |
+| Event Hubs Standard, 1 throughput unit | ~$0.75 |
+| Container Registry Basic | ~$0.17 |
+| Log Analytics / Application Insights | Under the free 5 GB a month for light testing |
+
+Cosmos DB (serverless), Storage, Translator and the model's tokens are pay-per-use: close to nothing while idle.
+Each match streamed with the Foundry agents uses very roughly 0.5–1 million tokens (the insights, their viewer
+variants, the storyteller and the chat); check your deployment's price per million in the Foundry portal. Real
+spend: **Cost Management** in the portal, filtered to the resource group, a day behind.
+
+**Stop the container apps when you're not testing.** It stops their compute charges, which are most of the bill;
+a stopped deployment costs about $1 a day (Event Hubs and the registry can't be stopped). The Azure CLI has no
+`az containerapp stop`, so these call the Container Apps Stop and Start operations through `az rest`:
+
+```powershell
+$rg  = azd env get-value AZURE_RESOURCE_GROUP      # or: $rg = "rg-<your env name>"
+$ids = az containerapp list -g $rg --query "[].id" -o tsv
+
+# Stop: the web app and API go offline; data in Cosmos DB is kept
+foreach ($id in $ids) { az rest --method post --url "https://management.azure.com$id/stop?api-version=2024-03-01" }
+
+# Start again (give it a minute, then check $env:AGENTS_URL/healthz)
+foreach ($id in $ids) { az rest --method post --url "https://management.azure.com$id/start?api-version=2024-03-01" }
+
+# Which state they're in
+az containerapp list -g $rg --query "[].{name:name, status:properties.runningStatus}" -o table
+```
+
+Each app's **Overview** page in the portal has the same **Stop** and **Start** buttons. Start the apps before an
+`azd deploy`. Events streamed while they were stopped stay in Event Hubs for a day, and the agents resume from their
+checkpoint.
+
+**Delete everything** to bring the cost to zero. `azd up` rebuilds it in 15–25 minutes, without the stored
+insights and match history (the season files are rebuilt with the images):
 
 ```powershell
 azd down --purge           # deletes everything, and purges the soft-deleted Foundry account
