@@ -1,5 +1,7 @@
 # Microsoft Fabric: Eventstream and Eventhouse
 
+![Fabic](Fabric.png)
+
 Every event lands in an Eventhouse (KQL database) for analytics, dashboards and the MCP server's season queries.
 These steps are done in the Fabric portal. Fabric's Git integration can then save the items into this folder.
 
