@@ -1,104 +1,63 @@
+# footballfoundry-web
 
-# TL;DR
+The FootballFoundry web app: the live match, the analyst agents' insights written for each viewer, and a chat with
+the match assistant. React + TypeScript, built with Vite, using Fluent UI. In production the agents service
+serves it, so the page, its API and the chat share one origin.
 
-**FootballFoundry is an AI-powered platform for turning live football data into stories people can understand.**
+![Web app with live insights and chat](../../docs/web.png)
 
-The repository contains an end-to-end implementation that generates synthetic football-realistic matches, streams every event in real time, analyzes the evolving game with specialized AI agents, verifies the resulting insights against match data, and transforms them into personalized experiences for fans, analysts and broadcasters.
+## Run it
 
-FootballFoundry goes beyond reporting *what happened*. It explains **why it matters**: momentum shifts, tactical changes, player performances, big chances and the story developing behind the score.
+```bash
+# 1. The agents service, fed by a live stream (offline = no Azure; see packages/agents for Foundry)
+footballfoundry world
+footballfoundry stream --matchday 1 --speed 30 --quiet | footballfoundry-agents serve --offline
+# Or in two terminals, started in either order: the stream writes a file, the service follows it
+footballfoundry-agents serve --offline --follow data/stream.jsonl
+footballfoundry stream --matchday 1 --speed 30 --sink file --out data/stream.jsonl
 
-Viewers experience this through a live web application with animated match playback, AI-generated insights, tactical visualizations, key-moment replays, multilingual personalization, season analytics and a conversational AI match assistant.
+# 2a. Development: hot reload on http://localhost:5173, API proxied to :8100
+cd packages/web && npm install && npm run dev
 
-**One repository, one complete pipeline:**
-
-`Synthetic football → Real-time streaming → Multi-agent analysis → Fact checking → Storytelling → Personalization → Live fan experience`
-
-All competition, club, player and match data is entirely synthetic.
-
-# How to use FootballFoundry
-
-A note about the first load: The first request may take a little longer while FootballFoundry connects to Cosmos DB, Event Hubs, and the AI model. If the application feels slow at first, please give it a couple of minutes to warm up. Thanks for your patience! ⚽❤️
-
-## 1. Start a match stream
-
-1. Open the **Control Room** at [FootballFoundry Control Room](https://ff.testharder.net/control).
-2. Enter the control key provided by the site administrator and select **Unlock**.
-3. Choose what you want to stream:
-   - **Fixture** – play a match from the simulated season.
-   - **Matchday** – play all fixtures from a selected matchday.
-   - **One-off** – create a matchup between any two clubs.
-4. Select the playback speed and, optionally, a scenario.
-5. Select **Start**.
-
-The stream is sent through **Azure Event Hubs**, where it feeds the live application and the connected analytics and AI pipeline.
-
-Use the **Streams** section to:
-- Monitor the match progress.
-- Open the match in the live viewer.
-- Stop a running stream.
-
-### 2. Watch the match live
-
-Open [FootballFoundry Live](https://ff.testharder.net/).
-
-Select a live match to:
-
-- Follow the score and match clock in real time.
-- Watch the match unfold on the animated pitch.
-- Explore possession, momentum, team statistics, and the event feed.
-- Pause, replay, or scrub through earlier moments.
-- View AI-generated insights explaining important moments and tactical patterns.
-- Use **Ask the analyst** to ask questions about the match.
-- Explore personalized insights for different audiences, languages, clubs, and players.
-
-### 3. Explore the season
-
-Open the **[Season](https://ff.testharder.net/season)** page from the application to explore the wider simulated league.
-
-From there you can view:
-
-- League standings and form.
-- Player and team statistics.
-- Top performers.
-- Player profiles and match-by-match performance.
-- Fixtures and season progress.
-
-A good place to start is to launch a fixture from the **Control Room**, select **Watch**, and then explore the AI insights and **Ask the analyst** while the match is running.
-
-# Run it locally
-
-FootballFoundry can run completely locally without Azure. In offline mode, it uses deterministic template insights instead of the Foundry-hosted AI workflow.
-
-1. Install dependencies
-
-From the repository root:
-```powershell
-uv sync
-uv run footballfoundry world
-
-cd packages\web
-npm install
-npm run build
-cd ..\..
-```
-Optionally generate the season data in advance:
-
-```powershell
-uv run footballfoundry book
+# 2b. Or build once and let the agents service serve it on http://127.0.0.1:8100
+cd packages/web && npm run build
 ```
 
-2. Start FootballFoundry
+## What's on the page
 
-```powershell
-uv run footballfoundry-agents serve --offline
-```
+| Part | What it does |
+| --- | --- |
+| Header | Match picker (every match the agents have seen), and the viewer's settings: audience (casual fan, broadcast, analyst, player focus), language, favourite club, followed player. Settings are remembered and saved as a profile, so the agents personalise for this viewer |
+| Scoreboard, pitch, momentum, stats, feed | The original viewer, ported to TypeScript. It plays the **same events the agents analyse**, relayed by the agents service |
+| Playback | Follow live, pause, replay at 1-120×, or replay from any minute (click the momentum strip). A DVR over the match |
+| Insights | The agents' insights for this viewer, as cards and as a broadcast-style lower third on the pitch. An insight appears only once playback reaches it, so replays never spoil what comes next. Replay a moment from its card; tap a player to follow them. The first cards introduce the match: a kick-off preview (the teams, their season so far) and, a couple of
+minutes in, the players to watch. Cards carry **visuals**: an animated replay of the move behind a goal or chance (a goals reel at full time), the xG race, a shot map, momentum or a head-to-head. **Casual fans** also get a "Did you know?" about a player or club. When the match goes quiet, a **Spotlight** card tells a story the agents found themselves |
+| Ask the analyst | Chat with the match assistant over [AG-UI](https://docs.ag-ui.com). It only knows the match up to where you are, answers in your language and style, can draw charts and move replays under its answers, and can act on the page: replay a moment, follow a player, change the view |
 
-3.Open:
+**Season** (`/season`): the simulated season, up to any matchday (the picker, or ‹ ›). While a match is live, it shows
+the standings before that matchday, so nothing is spoiled; one click shows everything.
 
-- **App**: http://127.0.0.1:8100
-- **Control Room**: http://127.0.0.1:8100/control
-- **Season**: http://127.0.0.1:8100/season
+| Tab | What it does |
+| --- | --- |
+| Table | Position and movement since the last matchday, played / won / drawn / lost, goals, points, the last five results, the next fixture; European places and relegation marked. Your club is highlighted. Click a club for its players |
+| Stats | Player leaders (goals, assists, xG, chances created, shots on target, tackles, interceptions, clean sheets, saves, distance, top speed) and club leaders (goals, fewest conceded, clean sheets, xG, possession, pass accuracy). Click a player for their profile, or "All" for the full ranking |
+| Players | Every player: search, club, position, sort by any column, per-90 view. Click a player for a profile with season totals, physical data and match-by-match log |
 
-In the Control Room, choose a fixture, matchday, or one-off match, select a playback speed, and press Start.
+Tabs, filters, sorting, the matchday and an open player are kept in the address, so a view can be shared or
+reloaded. `/control` is the testers' control room ([agents README](../agents/README.md#control-room)).
 
-For a quick demo, run M0015 at 30×, select Watch, and explore the live match, AI-style insights, visualizations, replay controls, Ask the analyst, and the Season experience.
+## How it works
+
+| File | Role |
+| --- | --- |
+| [`src/match/engine.ts`](src/match/engine.ts) | The match player: event relay connection, match state, playout buffer and the 60 fps pitch animation, outside React. React reads a throttled snapshot |
+| [`src/components/Chat.tsx`](src/components/Chat.tsx) | `@ag-ui/client` `HttpAgent` against `POST /api/chat`. Sends the page state (match, playback `as_of`, viewer settings) with every message, and runs the frontend tools the assistant calls (`seek_to`, `focus_player`, `set_view`) |
+| [`src/components/Insights.tsx`](src/components/Insights.tsx) | SSE from `/api/matches/{id}/stream` with the viewer's settings; holds insights back until playback reaches them |
+| [`src/components/Visual.tsx`](src/components/Visual.tsx) | Draws the visuals in insights and chat answers as SVG: the move replay (looping like a GIF, paused when off screen or with reduced motion), shot map, xG race, momentum and head-to-head, in the app's light and dark themes |
+| [`src/components/Trivia.tsx`](src/components/Trivia.tsx) | The casual fan's "Did you know?": the storyteller's own translation, or the fact worded in the viewer's language from its `key` and `params` |
+| [`src/store.ts`](src/store.ts) | Viewer settings (remembered in the browser) and the playback position shared by insights and chat |
+| [`src/i18n.ts`](src/i18n.ts) | Interface text in English, Spanish, French, Portuguese and German. Insights and chat answers come from the agents in any language |
+
+**Spoiler safety** holds everywhere: the relay sends only what has happened, insights wait for playback, and the
+chat sends `as_of` with each message. The server binds the assistant's data tools to it, so the assistant can't
+look ahead even if it tries.
