@@ -1,4 +1,7 @@
-# FootballFoundry — synthetic football match data
+# Football Foundry
+
+
+ — synthetic football match data
 
 FootballFoundry generates **synthetic, football-realistic** match data for the *Inside the Game* hackathon:
 a fictional league of 20 clubs and 520 players, a 380-match fixture list, and ~1,900 on-ball events per match
