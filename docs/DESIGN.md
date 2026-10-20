@@ -1,7 +1,7 @@
 # FootballFoundry design
 
 How the pieces fit together: the data flow, the agents service, the multi-agent workflow, the chat, and the Azure
-infrastructure `azd up` creates. For how to run things, see the [README](README.md) and each package's README.
+infrastructure `azd up` creates. For how to run things, see the [README](../README.md) and each package's README.
 
 - [1. The big picture](#1-the-big-picture)
 - [2. Inside the agents service](#2-inside-the-agents-service)
@@ -211,7 +211,7 @@ assistant can act on what the viewer sees.
 
 ## 6. Azure infrastructure
 
-What `azd up` creates from [`infra/`](infra/):
+What `azd up` creates from [`infra/`](../infra/):
 
 ```mermaid
 flowchart TB
@@ -264,7 +264,7 @@ flowchart TB
   replica's relay reads the whole stream, so any replica can serve any viewer.
 - **Observability:** container logs go to Log Analytics; Agent Framework's OpenTelemetry traces (each agent run and
   tool call) go to Application Insights.
-- **Not in the templates:** Microsoft Fabric. It's optional and set up by hand ([fabric/README.md](fabric/README.md));
+- **Not in the templates:** Microsoft Fabric. It's optional and set up by hand ([fabric/README.md](../fabric/README.md));
   without it, the MCP server reads the season data baked into its image.
 
 ### The MCP server's fallback chain

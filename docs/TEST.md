@@ -226,7 +226,7 @@ logs show the second stream being ignored.
 
 ## 9. Optional: Microsoft Fabric
 
-Follow [fabric/README.md](fabric/README.md):
+Follow [fabric/README.md](../fabric/README.md):
 
 1. Create the Eventhouse, run `tables.kql` and `functions.kql`, and load the fixtures.
 2. Create the Eventstream: source Event Hubs `match-events`, consumer group `fabric`, the `fabric-listen` key.

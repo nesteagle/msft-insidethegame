@@ -78,24 +78,24 @@ reads:
 uv run footballfoundry season --parquet
 ```
 
-**Deploy to Azure and test everything:** [TEST.md](TEST.md) has the full checklist, from `azd up` to checking the
-agents, translation, Cosmos DB and the web app. How it all fits together: [DESIGN.md](DESIGN.md).
+**Deploy to Azure and test everything:** [TEST.md](../../docs/TEST.md) has the full checklist, from `azd up` to checking the
+agents, translation, Cosmos DB and the web app. How it all fits together: [DESIGN.md](../../docs/DESIGN.md).
 
 ## Repository layout
 
 The solution is one repository with a separate project for each piece. The Python packages share one
 [uv workspace](https://docs.astral.sh/uv/concepts/projects/workspaces/), so they install together with one lockfile
-but build, test and deploy on their own. [DESIGN.md](DESIGN.md) explains the architecture with diagrams.
+but build, test and deploy on their own. [DESIGN.md](../../docs/DESIGN.md) explains the architecture with diagrams.
 
 | Path | Project | What it is |
 | --- | --- | --- |
-| [`packages/schema/`](packages/schema/) | `footballfoundry-schema` | Pydantic event and world models: the contract between every other piece |
-| [`packages/generator/`](packages/generator/) | `footballfoundry` | Match engine, CLI, browser viewer, and the Event Hubs producer (`stream`, `listen`) |
-| [`packages/agents/`](packages/agents/) | `footballfoundry-agents` | Event Hubs consumer, trigger rules, the Agent Framework multi-agent workflow, the match assistant chat (AG-UI), the event relay and the API; serves the web app |
-| [`packages/web/`](packages/web/) | `footballfoundry-web` | React + TypeScript web app: live match, personalised insights, chat with the match assistant |
-| [`packages/mcp/`](packages/mcp/) | `footballfoundry-mcp` | MCP server exposing match-data tools (live state, events, player stats, season queries) |
-| [`infra/`](infra/) | Bicep + `azd` | Event Hubs, Container Apps, Cosmos DB, Foundry project and model, managed identity and roles |
-| [`fabric/`](fabric/) | KQL + setup guide | Eventhouse tables and the KQL functions behind the season queries; Eventstream setup |
+| [`packages/schema/`](../schema/) | `footballfoundry-schema` | Pydantic event and world models: the contract between every other piece |
+| [`packages/generator/`](./) | `footballfoundry` | Match engine, CLI, browser viewer, and the Event Hubs producer (`stream`, `listen`) |
+| [`packages/agents/`](../agents/) | `footballfoundry-agents` | Event Hubs consumer, trigger rules, the Agent Framework multi-agent workflow, the match assistant chat (AG-UI), the event relay and the API; serves the web app |
+| [`packages/web/`](../web/) | `footballfoundry-web` | React + TypeScript web app: live match, personalised insights, chat with the match assistant |
+| [`packages/mcp/`](../mcp/) | `footballfoundry-mcp` | MCP server exposing match-data tools (live state, events, player stats, season queries) |
+| [`infra/`](../../infra/) | Bicep + `azd` | Event Hubs, Container Apps, Cosmos DB, Foundry project and model, managed identity and roles |
+| [`fabric/`](../../fabric/) | KQL + setup guide | Eventhouse tables and the KQL functions behind the season queries; Eventstream setup |
 
 ```text
 footballfoundry stream ──► Azure Event Hubs (match-events)
@@ -141,7 +141,7 @@ machine and with any number of worker processes.
 `footballfoundry serve` opens a live 2D match view in your browser. It shows the ball and all 22 players on the pitch,
 a scoreboard, live stats, a commentary-style feed and a momentum strip.
 
-![Match viewer mid-match](docs/viewer.png)
+![Match viewer mid-match](../../docs/viewer.png)
 
 ```bash
 footballfoundry serve --open                      # matchday 1 (10 matches, pick one from the menu) at 10x
@@ -150,7 +150,7 @@ footballfoundry serve --home T01 --away T20       # a one-off match
 ```
 
 The viewer runs at `http://127.0.0.1:8000` (change it with `--port`). It needs no build step or extra packages:
-plain HTML, CSS and JavaScript in [`packages/generator/src/footballfoundry/viewer/`](packages/generator/src/footballfoundry/viewer/), served by Python's standard library.
+plain HTML, CSS and JavaScript in [`src/footballfoundry/viewer/`](src/footballfoundry/viewer/), served by Python's standard library.
 
 | Part | What it shows |
 | --- | --- |
@@ -232,7 +232,7 @@ for line in sys.stdin:
 
 ### Stream to Azure Event Hubs
 
-**1. Create the Event Hub (one time).** `azd up` creates it with everything else (see [infra](infra/README.md)).
+**1. Create the Event Hub (one time).** `azd up` creates it with everything else (see [infra](../../infra/README.md)).
 To create only the Event Hub, run this in PowerShell:
 
 ```powershell
@@ -282,7 +282,7 @@ Authentication uses `DefaultAzureCredential` (your `az login` locally, or a mana
 use a connection string instead, set `EVENTHUB_CONNECTION_STRING` and leave out the namespace. `--eventhub-name`
 defaults to `match-events`, or to `$EVENTHUB_NAME` if it's set.
 
-**Message format.** Each Event Hubs message body is one [`Event`](packages/schema/src/footballfoundry_schema/__init__.py) as JSON, with
+**Message format.** Each Event Hubs message body is one [`Event`](../schema/src/footballfoundry_schema/__init__.py) as JSON, with
 `content_type: application/json` and the application properties `match_id` and `type`. You can filter on these
 without parsing the body. The partition key is `match_id`, so every event of a match lands on the same partition,
 in order.
@@ -328,7 +328,7 @@ to an Eventhouse (KQL database). The flat event schema maps directly to table co
 
 ## Match intelligence agents
 
-[`footballfoundry-agents`](packages/agents/) turns the live stream into **insights**: timed, machine-readable
+[`footballfoundry-agents`](../agents/) turns the live stream into **insights**: timed, machine-readable
 explanations of the moments that matter (a kick-off preview with the season so far, players to watch, goals,
 red cards, big chances, momentum swings,
 rolling summaries, half-time and full-time), each personalised per viewer by audience, language, favourite club and focus player, and
@@ -355,9 +355,9 @@ footballfoundry-agents serve --offline --follow data/stream.jsonl
 footballfoundry stream --matchday 1 --speed 30 --sink file --out data/stream.jsonl
 ```
 
-![Web app: live match, personalised insights and the match assistant](docs/web.png)
+![Web app: live match, personalised insights and the match assistant](../../docs/web.png)
 
-The [web app](packages/web/README.md) plays the same events the agents analyse, shows each insight as a card and
+The [web app](../web/README.md) plays the same events the agents analyse, shows each insight as a card and
 a lower third once playback reaches it, and has a chat with the match assistant: it only knows the match up to
 where you are, answers in your language, and can replay moments or follow a player on the page.
 
@@ -370,13 +370,13 @@ export FOUNDRY_PROJECT_ENDPOINT=... FOUNDRY_MODEL=...                         # 
 footballfoundry stream --speed 30 --quiet | footballfoundry-agents serve --mcp-url http://127.0.0.1:8001/mcp
 ```
 
-See [packages/agents](packages/agents/README.md) for the API and design, [packages/mcp](packages/mcp/README.md) for
-the tools, [infra](infra/README.md) to deploy everything with `azd up`, and [fabric](fabric/README.md) for the
+See [packages/agents](../agents/README.md) for the API and design, [packages/mcp](../mcp/README.md) for
+the tools, [infra](../../infra/README.md) to deploy everything with `azd up`, and [fabric](../../fabric/README.md) for the
 Eventhouse.
 
 ## How it works
 
-Modules are in [`packages/generator/src/footballfoundry/`](packages/generator/src/footballfoundry/).
+Modules are in [`src/footballfoundry/`](src/footballfoundry/).
 
 | Layer | Module | What it does |
 | --- | --- | --- |
@@ -464,7 +464,7 @@ penalty-miss, wonder-goal, great-save, woodwork, goal-fest, hat-trick, counter-g
 **Script a tactical storyline, with ground truth.** A scenario changes how a team plays from a given minute:
 its style (pressing, line height, directness, tempo, width, possession), a player's role, or the formation. Role and
 formation changes are visible on the pitch, so they're announced as `tactical_change` events; style changes aren't
-announced, as in a real data feed, so the agents have to notice them. Presets are in [`scenarios/`](scenarios/):
+announced, as in a real data feed, so the agents have to notice them. Presets are in [`scenarios/`](../../scenarios/):
 
 ```bash
 footballfoundry stream --match-id M0001 --speed 30 --scenario scenarios/high-press.json
@@ -472,7 +472,7 @@ footballfoundry match --home T05 --away T12 --move "61:home:RW:AM" --tactic "61:
 footballfoundry match --formation "60:away:3-5-2" --tactic "60:away:press_intensity=+0.3,width=+0.2"
 ```
 
-[`scenarios/README.md`](scenarios/README.md) explains each preset, how scenarios work, how strong their effects
+[`scenarios/README.md`](../../scenarios/README.md) explains each preset, how scenarios work, how strong their effects
 are, and how to write your own. Each run writes the ground truth to `data/truth/<match_id>.json`: the scripted changes and what they measurably did
 over the 20 minutes either side (shots, xG, PPDA, defensive line height, opponents' passes under pressure, final
 third entries, and the moved player's touches and central share). That's the answer key for judging whether the
@@ -482,7 +482,7 @@ touches from 30% to 72%.
 ## Data contract
 
 Defined as Pydantic models in the `footballfoundry-schema` package,
-[`packages/schema/src/footballfoundry_schema/__init__.py`](packages/schema/src/footballfoundry_schema/__init__.py).
+[`packages/schema/src/footballfoundry_schema/__init__.py`](../schema/src/footballfoundry_schema/__init__.py).
 The agents and Fabric depend on this package only, not on the generator.
 
 **Coordinates** are relative to the acting team: `x` 0→100 from its own goal line to the opponent's,

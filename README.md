@@ -92,7 +92,7 @@ uv run footballfoundry book
 uv run footballfoundry-agents serve --offline
 ```
 
-3.Open:
+3. Open:
 
 - **App**: http://127.0.0.1:8100
 - **Control Room**: http://127.0.0.1:8100/control
