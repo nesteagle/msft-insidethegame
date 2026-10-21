@@ -14,6 +14,14 @@ Viewers experience this through a live web application with animated match playb
 
 All competition, club, player and match data is entirely synthetic.
 
+## Demo video
+
+<video src="docs/FootballFoundry-demo.mp4" poster="docs/demo-poster.jpg" controls width="100%"></video>
+
+[![FootballFoundry demo video (1:47): architecture, Microsoft Fabric and the live app](docs/demo-poster.jpg)](docs/FootballFoundry-demo.mp4)
+
+[Watch the demo video (1:47)](docs/FootballFoundry-demo.mp4)
+
 # How to use FootballFoundry
 
 A note about the first load: The first request may take a little longer while FootballFoundry connects to Cosmos DB, Event Hubs, and the AI model. If the application feels slow at first, please give it a couple of minutes to warm up. Thanks for your patience! ⚽❤️
