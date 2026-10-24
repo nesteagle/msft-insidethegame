@@ -536,6 +536,8 @@ data/
 - [x] Web app (React): live match over the agents' relay with DVR replay, personalised insights and lower thirds,
       audience / language / club / player controls, chat with the match assistant over AG-UI
 - [x] Visuals: animated move replays, goals reel, shot map, xG race, momentum and team comparison in insights and chat
+- [x] Pitch maps in insights and chat: pass network, touch map, defensive map
+- [ ] More pitch maps: pass map, carry map, event timeline, xG-coloured shot map
 - [x] Lore for casual fans: "Did you know?" player and club facts from the league data, retold in five languages
       by a Foundry storyteller agent when one is configured
 - [x] Spotlight: when no insight has fired for 10 seconds (and 3 match minutes), the analysts find a story themselves

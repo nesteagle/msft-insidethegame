@@ -93,7 +93,11 @@ also carry `visuals` (charts and animated move replays) and `trivia` (a fun fact
 
 Insights and chat answers can carry **visuals** ([visuals.py](src/footballfoundry_agents/visuals.py)) that the web
 app draws: `move` (the move behind a goal or chance replayed on a mini pitch, looping like a GIF; at full time, a
-reel of every goal), `shot_map`, `xg_race`, `momentum` and `compare`. They're built in code from the match state
+reel of every goal), `shot_map`, `xg_race`, `momentum` and `compare`, and three pitch maps: `pass_network` (players at
+their average passing spot, linked by passes between them), `touch_map` (every touch of one player) and
+`defensive_map` (tackles, interceptions, blocks, clearances and recoveries). The pass network and defensive map hold
+both teams and open on the moment's team; a touch map needs a player, so it's offered only for a moment about one
+(a spotlight on a dribbler, for example). They're built in code from the match state
 when the moment fires, so the numbers are always the real ones and nothing after the moment gets in. The fact sheet
 lists the visuals a moment can show; the analyst picks up to two and captions them, and the fact-checker checks the
 captions. Without a pick (offline, or the template fallback) each kind of moment has defaults.
@@ -149,7 +153,7 @@ past the viewer whatever the model asks:
 | `match_state`, `events`, `player_stats`, `lookup`, `insights` | From the relay log and the insights store, up to `as_of` |
 | `season_query` | Through the MCP server, matchdays before this match only |
 | `explain_moment(event_id)` | Hands one moment to the analyst workflow (analyst → fact-checker → narrator) and returns the verified explanation, with its visuals |
-| `show_visual(type, event_id?)` | Draws a visual under the answer: a move replay (the goals reel without an event), shot map, xG race, momentum or team comparison |
+| `show_visual(type, event_id?, team_id?, player_id?)` | Draws a visual under the answer: a move replay (the goals reel without an event), shot map, xG race, momentum, team comparison, pass network, a player's touch map (default: the player the viewer follows) or defensive map |
 | `lore(subject_id)` | A player's or club's profile and fun facts, for casual fans |
 | `seek_to`, `focus_player`, `set_view` | Declared by the page and run in the browser: replay a moment, follow a player, change the view |
 

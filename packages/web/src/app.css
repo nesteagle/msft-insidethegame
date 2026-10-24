@@ -292,6 +292,28 @@ code { font-family: ui-monospace, Consolas, monospace; font-size: 12px; backgrou
 .shot.away { fill: color-mix(in srgb, var(--away-pitch) 30%, transparent); stroke: var(--away-pitch); }
 .shot.goal.home { fill: var(--home-pitch); stroke: #ffffff; }
 .shot.goal.away { fill: var(--away-pitch); stroke: #ffffff; }
+.viz-teams { margin-bottom: 6px; }
+.viz-teams i { display: inline-block; width: 8px; height: 8px; border-radius: 50%; margin-right: 6px; }
+.viz-teams i.home { background: var(--home); }
+.viz-teams i.away { background: var(--away); }
+.pn-link { stroke: rgba(255, 255, 255, 0.55); stroke-linecap: round; }
+.pn-node circle { stroke: #ffffff; stroke-width: 0.3; }
+.pn.home .pn-node circle { fill: var(--home-pitch); }
+.pn.away .pn-node circle { fill: var(--away-pitch); }
+.pn-node.off { opacity: 0.45; }
+.pn-node text { font-size: 2.4px; font-weight: 700; fill: #ffffff; pointer-events: none; }
+.tm-dot { stroke: #ffffff; stroke-width: 0.2; fill-opacity: 0.75; }
+.tm.home .tm-dot { fill: var(--home-pitch); }
+.tm.away .tm-dot { fill: var(--away-pitch); }
+/* Defensive actions: one colour and one shape per action, readable on the dark pitch */
+.dm-mark { stroke: #0b0b0b; stroke-width: 0.2; }
+.dm-mark.faded { opacity: 0.25; }
+.dm-tackle { fill: #ff6b6b; }
+.dm-interception { fill: #74a9ff; }
+.dm-block { fill: #c58cff; }
+.dm-clearance { fill: #4dd0e1; }
+.dm-ball_recovery { fill: #ffd54f; }
+.dm-key { width: 10px; height: 10px; margin-right: 4px; vertical-align: -1px; overflow: visible; }
 .viz-chart { position: relative; }
 .viz-chart svg { display: block; width: 100%; height: auto; overflow: visible; }
 .viz-grid { stroke: var(--grid); stroke-width: 1; }

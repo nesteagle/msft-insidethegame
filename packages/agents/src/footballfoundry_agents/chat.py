@@ -35,6 +35,7 @@ from footballfoundry_agents.triggers import Moment
 from footballfoundry_agents.visuals import ABOUT, VISUAL_TYPES
 from footballfoundry_agents.visuals import build as build_visual
 from footballfoundry_mcp import views
+from footballfoundry_schema import VisualType
 
 log = logging.getLogger(__name__)
 
@@ -166,16 +167,22 @@ def bound_tools(state: ChatState, service: AnalystService, mcp: Any) -> list[Any
 
     @tool(description="Draw a visual in the chat: " + "; ".join(f"{t} = {ABOUT[t]}" for t in VISUAL_TYPES)
                       + ". For move, pass the event_id of the shot or goal to replay its move; without one it "
-                        "replays every goal so far.")
-    async def show_visual(type: Literal["move", "shot_map", "xg_race", "momentum", "compare"],
-                          event_id: str | None = None) -> dict[str, Any]:
+                        "replays every goal so far. touch_map needs a player_id (default: the player the viewer "
+                        "follows); pass_network and defensive_map show team_id first (both teams are drawn).")
+    async def show_visual(type: VisualType, event_id: str | None = None, team_id: str | None = None,
+                          player_id: str | None = None) -> dict[str, Any]:
         anchor = next((e for e in seen() if e.event_id == event_id), None) if event_id else None
         if event_id and anchor is None:
             return {"error": f"{event_id} hasn't happened yet for this viewer, or doesn't exist"}
+        player_id = player_id or state.player_id
+        if type == "touch_map" and not player_id:
+            return {"error": "touch_map needs a player_id; use lookup to find it"}
         state_ = replay(anchor.seq if anchor else None)
-        visual = build_visual(state_, type, service.ref, anchor=anchor if type == "move" else None)
+        visual = build_visual(state_, type, service.ref, anchor=anchor if type == "move" else None, team_id=team_id,
+                              player_id=player_id)
         if visual is None:
-            return {"error": f"nothing to draw for {type} yet"}
+            return {"error": f"nothing to draw for {type} yet"
+                             + (f" for {player_id}" if type == "touch_map" else "")}
         return {"shown": type, "visual": visual.model_dump(mode="json")}
 
     @tool(description="Fun facts and the profile of a player or club (by id, e.g. P0124 or T03): fastest, "
@@ -190,6 +197,8 @@ def bound_tools(state: ChatState, service: AnalystService, mcp: Any) -> list[Any
 
 # Offline, a question that mentions one of these gets the matching visual (first match wins).
 OFFLINE_VISUALS = (("shot map", "shot_map"), ("shots", "shot_map"), ("xg", "xg_race"), ("momentum", "momentum"),
+                   ("pass network", "pass_network"), ("passing", "pass_network"), ("touch", "touch_map"),
+                   ("defensive", "defensive_map"), ("win the ball", "defensive_map"), ("tackles", "defensive_map"),
                    ("on top", "momentum"), ("compare", "compare"), ("stats", "compare"), ("numbers", "compare"),
                    ("goal", "move"), ("replay", "move"), ("move", "move"))
 

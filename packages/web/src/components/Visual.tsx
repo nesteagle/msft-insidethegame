@@ -1,6 +1,6 @@
-import { Button } from "@fluentui/react-components";
+import { Button, ToggleButton } from "@fluentui/react-components";
 import { NextRegular, PauseRegular, PlayRegular } from "@fluentui/react-icons";
-import { useEffect, useLayoutEffect, useMemo, useReducer, useRef, useState } from "react";
+import { type ReactNode, useEffect, useLayoutEffect, useMemo, useReducer, useRef, useState } from "react";
 import { useTranslation } from "react-i18next";
 import type { League, MoveStep, ShotPoint, Visual } from "../api";
 
@@ -33,6 +33,9 @@ function VisualFigure({ v, league, showCaption }: { v: Visual; league: League; s
       {v.type === "xg_race" && <XgRace v={v} league={league} />}
       {v.type === "momentum" && <MomentumBars v={v} league={league} />}
       {v.type === "compare" && <Compare v={v} league={league} />}
+      {v.type === "pass_network" && <PassNetwork v={v} league={league} />}
+      {v.type === "touch_map" && <TouchMap v={v} league={league} />}
+      {v.type === "defensive_map" && <DefensiveMap v={v} league={league} />}
     </figure>
   );
 }
@@ -396,6 +399,155 @@ function MomentumBars({ v, league }: { v: Visual; league: League }) {
           )}
           <line x1={0} x2={W} y1={mid} y2={mid} className="m-base" />
         </svg>
+      </div>
+    </>
+  );
+}
+
+// -- pitch maps: each team in its own frame, attacking left to right --------------------------------------------
+
+/** Home / away switch for the maps that hold both teams. */
+function TeamSwitch({ v, league, team, setTeam }: {
+  v: Visual; league: League; team: string; setTeam: (id: string) => void;
+}) {
+  return (
+    <div className="segmented viz-teams" role="group">
+      {[v.home_id, v.away_id].map((id) => (
+        <ToggleButton key={id} size="small" appearance="subtle" checked={team === id} onClick={() => setTeam(id)}>
+          <i className={side(v, id)} />{clubShort(league, id)}
+        </ToggleButton>
+      ))}
+    </div>
+  );
+}
+
+function PassNetwork({ v, league }: { v: Visual; league: League }) {
+  const { t } = useTranslation();
+  const [team, setTeam] = useState(v.team_id ?? v.home_id);
+  const nodes = (v.nodes ?? []).filter((n) => n.team_id === team).sort((a, b) => a.passes - b.passes);
+  const at = new Map(nodes.map((n) => [n.player_id, attackingRight(n.x, n.y)]));
+  const links = (v.links ?? []).filter((l) => l.team_id === team && at.has(l.a) && at.has(l.b));
+  const maxLink = Math.max(1, ...links.map((l) => l.passes));
+  const maxNode = Math.max(1, ...nodes.map((n) => n.passes));
+  const completed = nodes.reduce((a, n) => a + n.passes, 0) / 2;
+  return (
+    <>
+      <TeamSwitch v={v} league={league} team={team} setTeam={setTeam} />
+      <div className="viz-pitch">
+        <svg viewBox="-3 -3 111 74" role="img"
+             aria-label={`${t("viz.pass_network")}: ${clubShort(league, team)}, ${t("viz.completed", { n: completed })}`}>
+          <PitchLines />
+          <g className={`pn ${side(v, team)}`}>
+            {links.map((l) => {
+              const [x1, y1] = at.get(l.a)!, [x2, y2] = at.get(l.b)!;
+              return (
+                <line key={`${l.a}-${l.b}`} x1={x1} y1={y1} x2={x2} y2={y2} className="pn-link"
+                      strokeWidth={0.25 + (l.passes / maxLink) * 1.5}>
+                  <title>{`${playerShort(league, l.a)} ↔ ${playerShort(league, l.b)}: ${t("viz.passes", { n: l.passes })}`}</title>
+                </line>
+              );
+            })}
+            {nodes.map((n) => {
+              const [x, y] = at.get(n.player_id)!;
+              return (
+                <g key={n.player_id} className={`pn-node${n.on_pitch ? "" : " off"}`}>
+                  <title>{`${playerShort(league, n.player_id)}: ${t("viz.involved", { n: n.passes })}`}</title>
+                  <circle cx={x} cy={y} r={1.5 + Math.sqrt(n.passes / maxNode) * 2.2} />
+                  <text x={x} y={y + 0.95} textAnchor="middle">{league.players[n.player_id]?.number ?? ""}</text>
+                </g>
+              );
+            })}
+          </g>
+        </svg>
+      </div>
+      <div className="viz-note">{t("viz.attacking")} · {t("viz.networkNote")}</div>
+    </>
+  );
+}
+
+function TouchMap({ v, league }: { v: Visual; league: League }) {
+  const { t } = useTranslation();
+  const spots = v.spots ?? [];
+  const team = v.team_id ?? spots[0]?.team_id ?? v.home_id;
+  const half = spots.filter((s) => s.x > 50).length;
+  const who = `${playerShort(league, v.player_id ?? null)} · ${clubShort(league, team)}`;
+  return (
+    <>
+      <div className="legend viz-legend">
+        <span><i className={side(v, team)} />{who} · {t("viz.touches", { n: spots.length })}</span>
+      </div>
+      <div className="viz-pitch">
+        <svg viewBox="-3 -3 111 74" role="img" aria-label={`${t("viz.touch_map")}: ${who}, ${t("viz.touches", { n: spots.length })}`}>
+          <PitchLines />
+          <g className={`tm ${side(v, team)}`}>
+            {spots.map((s) => {
+              const [x, y] = attackingRight(s.x, s.y);
+              return (
+                <circle key={s.seq} cx={x} cy={y} r={1.1} className="tm-dot">
+                  <title>{`${s.clock} ${t(`viz.action.${s.type}`, { defaultValue: s.type })}`}</title>
+                </circle>
+              );
+            })}
+          </g>
+        </svg>
+      </div>
+      <div className="viz-note">
+        {t("viz.attacking")} · {t("viz.oppHalf", { pct: Math.round((100 * half) / Math.max(1, spots.length)) })}
+      </div>
+    </>
+  );
+}
+
+const DEFENSIVE = ["tackle", "interception", "block", "clearance", "ball_recovery"];
+
+/** A defensive action's marker: the shape tells the action apart without relying on colour alone. */
+function Mark({ type, x, y, r, faded, children }: {
+  type: string; x: number; y: number; r: number; faded?: boolean; children?: ReactNode;
+}) {
+  const cls = `dm-mark dm-${type}${faded ? " faded" : ""}`;
+  const poly = (pts: Pt[]) => (
+    <polygon points={pts.map(([px, py]) => `${x + px * r},${y + py * r}`).join(" ")} className={cls}>{children}</polygon>
+  );
+  if (type === "tackle") return poly([[0, -1], [0.95, 0.75], [-0.95, 0.75]]);
+  if (type === "clearance") return poly([[0, 1], [0.95, -0.75], [-0.95, -0.75]]);
+  if (type === "block") return poly([[0, -1.1], [1.1, 0], [0, 1.1], [-1.1, 0]]);
+  if (type === "interception") return <rect x={x - 0.8 * r} y={y - 0.8 * r} width={1.6 * r} height={1.6 * r} className={cls}>{children}</rect>;
+  return <circle cx={x} cy={y} r={0.85 * r} className={cls}>{children}</circle>;
+}
+
+function DefensiveMap({ v, league }: { v: Visual; league: League }) {
+  const { t } = useTranslation();
+  const [team, setTeam] = useState(v.team_id ?? v.home_id);
+  const spots = (v.spots ?? []).filter((s) => s.team_id === team);
+  const pick = v.player_id && spots.some((s) => s.player_id === v.player_id) ? v.player_id : null;
+  const drawn = pick ? [...spots].sort((a, b) => Number(a.player_id === pick) - Number(b.player_id === pick)) : spots;
+  return (
+    <>
+      <TeamSwitch v={v} league={league} team={team} setTeam={setTeam} />
+      <div className="viz-pitch">
+        <svg viewBox="-3 -3 111 74" role="img"
+             aria-label={`${t("viz.defensive_map")}: ${clubShort(league, team)}, ${DEFENSIVE.map((k) => `${t(`viz.action.${k}`)} ${spots.filter((s) => s.type === k).length}`).join(", ")}`}>
+          <PitchLines />
+          {drawn.map((s) => {
+            const [x, y] = attackingRight(s.x, s.y);
+            return (
+              <Mark key={s.seq} type={s.type} x={x} y={y} r={1.3} faded={!!pick && s.player_id !== pick}>
+                <title>{`${s.clock} ${playerShort(league, s.player_id)} · ${t(`viz.action.${s.type}`, { defaultValue: s.type })}`}</title>
+              </Mark>
+            );
+          })}
+        </svg>
+      </div>
+      <div className="legend viz-legend">
+        {DEFENSIVE.map((k) => (
+          <span key={k}>
+            <svg className="dm-key" viewBox="-2 -2 4 4" aria-hidden="true"><Mark type={k} x={0} y={0} r={1.5} /></svg>
+            {t(`viz.action.${k}`)} {spots.filter((s) => s.type === k).length}
+          </span>
+        ))}
+      </div>
+      <div className="viz-note">
+        {t("viz.attacking")}{pick && ` · ${t("viz.pickedOut", { player: playerShort(league, pick) })}`}
       </div>
     </>
   );

@@ -19,7 +19,7 @@ from typing import Annotated, Any, Literal
 
 from pydantic import AfterValidator, BaseModel, ConfigDict, Field
 
-SCHEMA_VERSION = "0.3.0"
+SCHEMA_VERSION = "0.4.0"
 
 Rating = Annotated[int, Field(ge=1, le=99)]
 Unit = Annotated[float, Field(ge=0.0, le=1.0)]
@@ -312,7 +312,8 @@ InsightKind = Literal[
 Audience = Literal["broadcast", "analyst", "casual", "player"]
 
 
-VisualType = Literal["move", "shot_map", "xg_race", "momentum", "compare"]
+VisualType = Literal["move", "shot_map", "xg_race", "momentum", "compare", "pass_network", "touch_map",
+                     "defensive_map"]
 
 
 class MoveStep(BaseModel):
@@ -364,17 +365,56 @@ class CompareRow(BaseModel):
     away: float
 
 
+class PitchSpot(BaseModel):
+    """One action on a touch map or a defensive map. Coordinates are the acting team's, as in `Event`."""
+
+    seq: int
+    clock: str
+    type: str
+    team_id: str
+    player_id: str | None = None
+    outcome: str | None = None
+    x: Coord
+    y: Coord
+
+
+class NetworkNode(BaseModel):
+    """A player in a pass network, at the average spot of the passes they completed and received."""
+
+    team_id: str
+    player_id: str
+    x: Coord
+    y: Coord
+    passes: int = Field(description="Completed passes made plus received")
+    on_pitch: bool = Field(default=True, description="False once substituted off or sent off")
+
+
+class NetworkLink(BaseModel):
+    """Completed passes between two players of a team, both directions."""
+
+    team_id: str
+    a: str
+    b: str
+    passes: int
+
+
 class Visual(BaseModel):
     """A chart or an animation to show with an insight or a chat answer, rendered by the web app.
 
     Built in code from the match events, never by a model, so the numbers are always the real ones. A model only
     picks which visuals to show and writes the caption. Which fields are set depends on `type`:
 
-        move        clips      the move (or, in a recap, every goal) replayed on a mini pitch, looping like a GIF
-        shot_map    shots      every shot so far, sized by xG
-        xg_race     shots      cumulative xG per team by minute, goals marked
-        momentum    threat     attacking threat per minute for each side
-        compare     rows       the two teams' numbers side by side
+        move           clips          the move (or, in a recap, every goal) replayed on a mini pitch, looping like a GIF
+        shot_map       shots          every shot so far, sized by xG
+        xg_race        shots          cumulative xG per team by minute, goals marked
+        momentum       threat         attacking threat per minute for each side
+        compare        rows           the two teams' numbers side by side
+        pass_network   nodes, links   both teams' pass networks; `team_id` is the one to show first
+        touch_map      spots          every touch of `player_id` (of `team_id`)
+        defensive_map  spots          both teams' tackles, interceptions, blocks, clearances and recoveries;
+                                      `team_id` is the one to show first
+
+    The pitch maps draw each team in its own frame, attacking left to right.
     """
 
     type: VisualType
@@ -385,6 +425,13 @@ class Visual(BaseModel):
     shots: list[ShotPoint] = Field(default_factory=list)
     threat: list[MinuteThreat] = Field(default_factory=list)
     rows: list[CompareRow] = Field(default_factory=list)
+    team_id: str | None = Field(default=None, description="pitch maps: the team to show first (touch_map: the "
+                                                          "player's team)")
+    player_id: str | None = Field(default=None, description="touch_map: whose touches; defensive_map: a player of "
+                                                            "`team_id` to pick out")
+    spots: list[PitchSpot] = Field(default_factory=list)
+    nodes: list[NetworkNode] = Field(default_factory=list)
+    links: list[NetworkLink] = Field(default_factory=list)
     now: float | None = Field(default=None, description="xg_race: the match minute it was drawn at (as ShotPoint.t)")
     half_time: float | None = Field(default=None, description="xg_race, momentum: where the second half starts "
                                                               "(as ShotPoint.t)")

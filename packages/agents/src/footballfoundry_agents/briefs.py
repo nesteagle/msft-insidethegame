@@ -205,10 +205,11 @@ def build(state: MatchState, moment: Moment, ref: Reference, *, lore: Any = None
     if physical:
         lines += ["", "PHYSICAL (modelled from tracking-style workload):"] + ["  " + p for p in physical]
         facts["physical"] = physical
-    visuals = offered(state, moment.kind, ref, anchor=e, evidence=moment.evidence)
+    visuals = offered(state, moment.kind, ref, anchor=e, evidence=moment.evidence, team_id=moment.team_id,
+                      player_id=moment.player_ids[0] if moment.player_ids else None)
     if visuals:
         lines += ["", "VISUALS YOU CAN SHOW (drawn from the data; pick 0-2, each with a one-sentence caption):",
-                  describe_offer(visuals)]
+                  describe_offer(visuals, ref)]
     lines += ["", "Coordinates: x 0-100 from the acting team's own goal to the opponent's; the box starts at x=83."]
 
     return Brief(

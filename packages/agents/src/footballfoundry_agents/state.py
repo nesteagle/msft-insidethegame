@@ -16,6 +16,10 @@ from footballfoundry_schema.stats import add_event, finish, threat
 RECENT = 200  # events kept for evidence (a long possession is ~40)
 MOVE_STEPS = 15  # actions kept per goal move, for the animated replays
 MOVE_TYPES = ("pass", "carry", "take_on", "shot")
+# On-ball actions with a spot, for the touch and defensive maps.
+TOUCH_TYPES = ("pass", "carry", "take_on", "shot", "save", "block", "tackle", "interception", "clearance",
+               "ball_recovery")
+SPOT_FIELDS = ("seq", "clock", "type", "team_id", "player_id", "outcome", "x", "y")  # one `spots` row
 
 
 def move_steps(chain: list[Event], team_id: str | None, limit: int = MOVE_STEPS) -> list[dict[str, Any]]:
@@ -58,6 +62,11 @@ class MatchState:
         # where first-half stoppage time and the second half's 45'-48' share a key.
         self.threat_by_t: dict[str, dict[int, float]] = defaultdict(lambda: defaultdict(float))
         self.goal_moves: list[dict[str, Any]] = []  # {seq, clock, player_id, steps}
+        # Pitch maps: every on-ball action with a spot as a SPOT_FIELDS row (lists keep the snapshot small), and
+        # each team's completed passes folded into a network: nodes {player: [sum x, sum y, passes made and
+        # received]}, links {"a b": passes either way}.
+        self.spots: list[list[Any]] = []
+        self.passing: dict[str, dict[str, dict[str, Any]]] = defaultdict(lambda: {"nodes": {}, "links": {}})
         self.triggers: dict[str, Any] = {}  # bookkeeping owned by TriggerEngine
 
     # -- folding ---------------------------------------------------------------------------------------------
@@ -105,6 +114,17 @@ class MatchState:
             if e.outcome == "goal":
                 self.goal_moves.append({"seq": e.seq, "clock": e.clock, "player_id": e.player_id,
                                         "steps": move_steps(self.possession_chain(e.possession_id), e.team_id)})
+        if e.player_id and e.type in TOUCH_TYPES and e.x is not None and e.y is not None:
+            self.spots.append([e.seq, e.clock, e.type, e.team_id, e.player_id, e.outcome, round(e.x, 1),
+                               round(e.y, 1)])
+        if (e.type == "pass" and e.outcome == "complete" and e.player_id and e.related_player_id
+                and None not in (e.x, e.y, e.end_x, e.end_y)):
+            net = self.passing[e.team_id]
+            for p, x, y in ((e.player_id, e.x, e.y), (e.related_player_id, e.end_x, e.end_y)):
+                node = net["nodes"].setdefault(p, [0.0, 0.0, 0])
+                node[0], node[1], node[2] = node[0] + x, node[1] + y, node[2] + 1
+            link = " ".join(sorted((e.player_id, e.related_player_id)))
+            net["links"][link] = net["links"].get(link, 0) + 1
         return True
 
     # -- views -----------------------------------------------------------------------------------------------
@@ -176,6 +196,8 @@ class MatchState:
             "shots": self.shots,
             "p1_end_minute": self.p1_end_minute,
             "goal_moves": self.goal_moves,
+            "spots": self.spots,
+            "passing": dict(self.passing),
             "triggers": self.triggers,
         }
 
@@ -201,5 +223,7 @@ class MatchState:
         s.shots = list(snap.get("shots", []))
         s.p1_end_minute = snap.get("p1_end_minute", 45)
         s.goal_moves = list(snap.get("goal_moves", []))
+        s.spots = list(snap.get("spots", []))
+        s.passing.update(snap.get("passing", {}))
         s.triggers = dict(snap.get("triggers", {}))
         return s

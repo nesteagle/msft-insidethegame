@@ -81,17 +81,18 @@ def find_angles(state: MatchState, used: set[str] | frozenset[str] = frozenset()
         s = state.players[passer[0]]
         out.append(Angle("passing_hub", passer[1], passer[0], {
             "completed": int(s.get("passes_completed", 0)),
-            "accuracy": round(100 * s.get("passes_completed", 0) / max(1, s.get("passes", 0)))}, visual="compare"))
+            "accuracy": round(100 * s.get("passes_completed", 0) / max(1, s.get("passes", 0)))},
+            visual="pass_network"))
     winner = _best(state, lambda s: s.get("tackles_won", 0) + s.get("interceptions", 0) + s.get("ball_recoveries", 0), 4)
     if winner:
         s = state.players[winner[0]]
         out.append(Angle("ball_winner", winner[1], winner[0], {
             "won": int(winner[2]), "tackles": int(s.get("tackles_won", 0)),
             "interceptions": int(s.get("interceptions", 0)), "recoveries": int(s.get("ball_recoveries", 0))},
-            visual="momentum"))
+            visual="defensive_map"))
     dribbler = _best(state, lambda s: s.get("take_ons", 0), 3)
     if dribbler:
-        out.append(Angle("dribbler", dribbler[1], dribbler[0], {"take_ons": int(dribbler[2])}, visual="momentum"))
+        out.append(Angle("dribbler", dribbler[1], dribbler[0], {"take_ons": int(dribbler[2])}, visual="touch_map"))
     return [x for x in out if x.angle_id not in used]
 
 

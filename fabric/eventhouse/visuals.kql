@@ -1,0 +1,140 @@
+// FootballFoundry pitch visuals for a Real-Time Dashboard. Run after functions.kql.
+// Needs the Python plugin (Eventhouse → Plugins → Python language extension on).
+// Each FF_* visual returns one cell of Plotly JSON: in the dashboard tile pick Visual type = Plotly.
+//
+// Frame: the schema's x/y run 0-100 from the acting team's own goal / right touchline. FF_Pitch draws a 105m x 68m
+// pitch with x to the right, so a team in its own frame attacks left to right.
+
+// The shared renderer. Input rows are layers, drawn lines first, then points grouped into legend entries by `series`:
+//   layer   "line" (x,y → end_x,end_y, width = size) or "point" (marker at x,y, diameter = size)
+//   series  legend name; color, symbol (Plotly marker symbol), label (text on the marker), hover
+.create-or-alter function with (folder = "footballfoundry/visuals", docstring = "Draw layers on a pitch, Plotly JSON")
+FF_Pitch(T: (*), title: string) {
+    let code = ```
+import pandas as pd
+import plotly.graph_objects as go
+
+L, W = 105.0, 68.0
+df = df.fillna({"label": "", "hover": "", "symbol": "circle", "color": "#ffffff", "size": 8})
+for c in ("x", "end_x"):
+    df[c] = df[c] * L / 100
+for c in ("y", "end_y"):
+    df[c] = df[c] * W / 100
+
+ink = dict(color="rgba(255,255,255,0.85)", width=1.5)
+shapes = [
+    dict(type="rect", x0=0, y0=0, x1=L, y1=W, line=ink, fillcolor="#2e7d32", layer="below"),
+    dict(type="line", x0=L / 2, y0=0, x1=L / 2, y1=W, line=ink, layer="below"),
+    dict(type="circle", x0=L / 2 - 9.15, y0=W / 2 - 9.15, x1=L / 2 + 9.15, y1=W / 2 + 9.15, line=ink, layer="below"),
+]
+for x0, s in ((0.0, 1), (L, -1)):
+    for depth, width in ((16.5, 40.32), (5.5, 18.32)):
+        shapes.append(dict(type="rect", x0=x0, x1=x0 + s * depth, y0=(W - width) / 2, y1=(W + width) / 2,
+                           line=ink, layer="below"))
+    shapes.append(dict(type="rect", x0=x0, x1=x0 - s * 2, y0=(W - 7.32) / 2, y1=(W + 7.32) / 2,
+                       line=ink, layer="below"))
+
+fig = go.Figure()
+for r in df[df["layer"] == "line"].itertuples():
+    fig.add_trace(go.Scatter(x=[r.x, r.end_x], y=[r.y, r.end_y], mode="lines", showlegend=False,
+                             line=dict(color=r.color, width=r.size), hoverinfo="text", text=r.hover))
+for g, d in df[df["layer"] == "point"].groupby("series", sort=False):
+    labelled = (d["label"] != "").any()
+    fig.add_trace(go.Scatter(
+        x=d["x"], y=d["y"], name=g, mode="markers+text" if labelled else "markers",
+        marker=dict(size=d["size"], color=d["color"], symbol=d["symbol"], opacity=1, line=dict(color="#111", width=1)),
+        text=d["label"], textfont=dict(color="white", size=9), hovertext=d["hover"], hoverinfo="text"))
+
+fig.update_layout(
+    title=dict(text=kargs["title"], x=0.5), shapes=shapes, font=dict(color="#808080"),
+    paper_bgcolor="rgba(0,0,0,0)", plot_bgcolor="rgba(0,0,0,0)", margin=dict(l=10, r=10, t=40, b=10),
+    legend=dict(orientation="h", x=0.5, xanchor="center", y=0, yanchor="top"),
+    xaxis=dict(range=[-3, L + 3], visible=False), yaxis=dict(range=[-2, W + 2], visible=False, scaleanchor="x"))
+result = pd.DataFrame({"plotly": [fig.to_json()]})
+```;
+    T
+    | project layer, series, x = todouble(x), y = todouble(y), end_x = todouble(end_x), end_y = todouble(end_y),
+        size = todouble(size), color, symbol, label, hover
+    | evaluate python(typeof(plotly: string), code, bag_pack("title", title))
+}
+
+// Every shot of a match. The home side attacks left to right, the away side is mirrored; marker size is xG.
+.create-or-alter function with (folder = "footballfoundry/visuals", docstring = "Shot map of a match, Plotly JSON")
+FF_ShotMap(m: string) {
+    let ev = FF_MatchEvents(m, 1000000);
+    let sides = ev | where type == "period_start" and period == 1 | order by seq asc | summarize t = make_list(team_id);
+    let home = toscalar(sides | project tostring(t[0]));
+    let away = toscalar(sides | project tostring(t[1]));
+    ev
+    | where type == "shot"
+    | extend mirror = team_id != home
+    | extend x = iff(mirror, 100 - x, x), y = iff(mirror, 100 - y, y)
+    | extend series = case(outcome == "goal", "Goal", outcome == "saved", "Saved", outcome == "blocked", "Blocked",
+        "Off target")
+    | project layer = "point", series, x, y, end_x = real(null), end_y = real(null), size = 10 + 50 * xg,
+        color = case(series == "Goal", "#ffd400", series == "Saved", "#ffffff", series == "Blocked", "#9e9e9e",
+            "#e53935"),
+        symbol = case(series == "Goal", "star", series == "Blocked", "square", series == "Off target", "x", "circle"),
+        label = "", hover = strcat(team_id, " ", player_id, " ", clock, " · xG ", round(xg, 2))
+    | invoke FF_Pitch(strcat("Shots ", m, ": ", home, " → · ← ", away))
+}
+
+// A team's pass network for its starting XI, up to its first substitution. Nodes sit at the average position of
+// each player's completed passes and receptions; links are player pairs with at least `min_passes` between them.
+.create-or-alter function with (folder = "footballfoundry/visuals", docstring = "Pass network of a team, Plotly JSON")
+FF_PassNetwork(m: string, team: string, min_passes: long = 3) {
+    let ev = FF_MatchEvents(m, 1000000) | where team_id == team;
+    let until = coalesce(toscalar(ev | where type == "substitution" | summarize min(seq)), 1000000);
+    let roles = ev
+        | where type == "period_start" and period == 1
+        | mv-expand p = qualifiers.lineup
+        | project player_id = tostring(p.player_id), role = tostring(p.role);
+    let passes = ev | where type == "pass" and outcome == "complete" and seq < until;
+    let nodes = union
+            (passes | project player_id, x, y),
+            (passes | project player_id = related_player_id, x = end_x, y = end_y)
+        | summarize x = avg(x), y = avg(y), touches = count() by player_id
+        | join kind = inner roles on player_id;
+    let links = passes
+        | extend a = iff(strcmp(player_id, related_player_id) < 0, player_id, related_player_id),
+            b = iff(strcmp(player_id, related_player_id) < 0, related_player_id, player_id)
+        | summarize n = count() by a, b
+        | where n >= min_passes
+        | join kind = inner (nodes | project a = player_id, x1 = x, y1 = y) on a
+        | join kind = inner (nodes | project b = player_id, x2 = x, y2 = y) on b;
+    union
+        (links | project layer = "line", series = "Passes", x = x1, y = y1, end_x = x2, end_y = y2,
+            size = 0.5 + n / 2.0, color = "rgba(255,255,255,0.55)", symbol = "", label = "",
+            hover = strcat(a, " ↔ ", b, ": ", n, " passes")),
+        (nodes | project layer = "point", series = "Players", x, y, end_x = real(null), end_y = real(null),
+            size = 18 + min_of(touches, 120) / 6.0, color = "#1f3a93", symbol = "circle", label = role,
+            hover = strcat(player_id, " (", role, "): ", touches, " passes and receptions"))
+    | invoke FF_Pitch(strcat("Pass network ", m, ": ", team, " → (XI until first sub)"))
+}
+
+// Where a team wins the ball back: tackles, interceptions, blocks, clearances and recoveries, in its own frame.
+.create-or-alter function with (folder = "footballfoundry/visuals", docstring = "Defensive actions of a team, Plotly")
+FF_DefensiveActions(m: string, team: string) {
+    FF_MatchEvents(m, 1000000)
+    | where team_id == team and type in ("tackle", "interception", "block", "clearance", "ball_recovery")
+    | extend series = case(type == "tackle", "Tackles", type == "interception", "Interceptions", type == "block",
+        "Blocks", type == "clearance", "Clearances", "Recoveries")
+    | project layer = "point", series, x, y, end_x = real(null), end_y = real(null), size = 11.0,
+        color = case(series == "Tackles", "#e53935", series == "Interceptions", "#283593", series == "Blocks",
+            "#8e24aa", series == "Clearances", "#00acc1", "#ffb300"),
+        symbol = case(series == "Tackles", "triangle-up", series == "Interceptions", "square", series == "Blocks",
+            "diamond", series == "Clearances", "triangle-down", "circle"),
+        label = "",
+        hover = strcat(player_id, " ", clock, " ", type, iff(isempty(outcome), "", strcat(" (", outcome, ")")))
+    | invoke FF_Pitch(strcat("Defensive actions ", m, ": ", team, " →"))
+}
+
+// Native visual, no Python: the xG race. Pick Visual type = Line chart (x = minute, y = xg, series = team_id).
+.create-or-alter function with (folder = "footballfoundry/visuals", docstring = "Cumulative xG by minute per team")
+FF_XgRace(m: string) {
+    FF_MatchEvents(m, 1000000)
+    | where type == "shot"
+    | summarize xg = sum(xg) by team_id, minute
+    | order by team_id asc, minute asc
+    | extend xg = round(row_cumsum(xg, team_id != prev(team_id)), 2)
+}

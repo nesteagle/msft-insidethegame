@@ -154,9 +154,38 @@ export interface ShotPoint {
   outcome: string | null;
 }
 
+/** One action on a touch or defensive map, in the acting team's frame. */
+export interface PitchSpot {
+  seq: number;
+  clock: string;
+  type: string;
+  team_id: string;
+  player_id: string | null;
+  outcome: string | null;
+  x: number;
+  y: number;
+}
+
+/** A player in a pass network, at the average spot of the passes they completed and received. */
+export interface NetworkNode {
+  team_id: string;
+  player_id: string;
+  x: number;
+  y: number;
+  passes: number; // completed passes made plus received
+  on_pitch: boolean;
+}
+
+export interface NetworkLink {
+  team_id: string;
+  a: string;
+  b: string;
+  passes: number; // both directions
+}
+
 /** A chart or animated replay, built from the events by the agents service (see footballfoundry_schema.Visual). */
 export interface Visual {
-  type: "move" | "shot_map" | "xg_race" | "momentum" | "compare";
+  type: "move" | "shot_map" | "xg_race" | "momentum" | "compare" | "pass_network" | "touch_map" | "defensive_map";
   home_id: string;
   away_id: string;
   caption: string;
@@ -164,6 +193,11 @@ export interface Visual {
   shots: ShotPoint[];
   threat: { minute: number; home: number; away: number }[];
   rows: { key: string; home: number; away: number }[];
+  team_id?: string | null; // pitch maps: the team to show first (touch_map: the player's team)
+  player_id?: string | null; // touch_map: whose touches; defensive_map: a player to pick out
+  spots?: PitchSpot[];
+  nodes?: NetworkNode[];
+  links?: NetworkLink[];
   now: number | null; // xg_race: the minute it was drawn at, as ShotPoint.t
   half_time: number | null; // xg_race, momentum: where the second half starts, as ShotPoint.t
 }
