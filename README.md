@@ -20,7 +20,7 @@ All competition, club, player and match data is entirely synthetic.
 
 [![FootballFoundry demo video (1:47): architecture, Microsoft Fabric and the live app](docs/demo-poster.jpg)](docs/FootballFoundry-demo.mp4)
 
-[Watch the demo video (1:47)](docs/FootballFoundry-demo.mp4)
+[Watch the demo video (1:47)](https://youtu.be/S6WRW3pgMww)
 
 # How to use FootballFoundry
 
