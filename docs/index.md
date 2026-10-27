@@ -6,7 +6,8 @@ Start with the [project overview](../README.md) for the end-to-end FootballFound
 
 - [Design](./DESIGN.md) — architecture, agent workflow, event-to-screen flow, infrastructure, and design decisions.
 - [Deploy and test](./TEST.md) — local testing, Azure deployment, smoke tests, Fabric setup, troubleshooting, and cleanup.
-
+- [Microsoft Fabric](../fabric/README.md) — Microsoft Fabric eventstream and eventhouse.
+   
 ## Component documentation
 
 - [Agents service](../packages/agents/README.md) — run the match analyst, configure its API and chat, and learn about insights, visuals, and translation.
